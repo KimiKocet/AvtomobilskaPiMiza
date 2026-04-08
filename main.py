@@ -1,108 +1,204 @@
-# main.py
-
 from kivy.config import Config
 from kivy.core.window import Window
+from kivy.graphics import Color, Ellipse, RoundedRectangle
+from kivy.metrics import dp
+from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
-from kivy.graphics import Color, RoundedRectangle
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.screenmanager import ScreenManager
 from kivymd.app import MDApp
 from kivymd.uix.button import MDIconButton
+from kivymd.uix.label import MDLabel
 
-# Import screens
 from screens.home import HomeScreen
-from screens.music import MusicScreen
 from screens.map import MapScreen
+from screens.music import MusicScreen
 from screens.settings import SettingsScreen
 
-from kivy.app import App
-from kivy.uix.screenmanager import ScreenManager, Screen
+Window.top = True
 
-# -----------------------------
-# Keep window on top and prevent minimize
-# -----------------------------
-Window.top = True  # keep window above others
 
 def on_focus(window, focus):
     if not focus:
-        Window.raise_window()  # bring back if focus lost
+        Window.raise_window()
+
 
 Window.bind(on_focus=on_focus)
 
-# Window setup
-Config.set('graphics', 'width', '1024')
-Config.set('graphics', 'height', '600')
-Config.set('graphics', 'fullscreen', '0')
+Config.set("graphics", "width", "1024")
+Config.set("graphics", "height", "600")
+Config.set("graphics", "fullscreen", "0")
 Window.size = (1024, 600)
 
 
-# ----------------------
-# MAIN SCREEN
-# ----------------------
-class MainScreen(BoxLayout):
-
+class MainScreen(FloatLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.orientation = "horizontal"
 
-        # -------- LEFT MENU --------
-        self.menu_layout = BoxLayout(
-            orientation='vertical',
-            size_hint=(None, 1),
-            width=120,
-            padding=10
+        with self.canvas.before:
+            Color(0.01, 0.02, 0.05, 1)
+            self.bg_rect = RoundedRectangle(pos=self.pos, size=self.size)
+            Color(0.09, 0.29, 0.46, 0.22)
+            self.glow_left = Ellipse(size=(dp(420), dp(420)))
+            Color(0.9, 0.37, 0.18, 0.12)
+            self.glow_right = Ellipse(size=(dp(360), dp(360)))
+        self.bind(pos=self._update_background, size=self._update_background)
+
+        shell = BoxLayout(
+            orientation="horizontal",
+            spacing=dp(18),
+            padding=(dp(16), dp(16), dp(16), dp(16)),
         )
 
+        self.menu_layout = BoxLayout(
+            orientation="vertical",
+            size_hint=(None, 1),
+            width=dp(148),
+            padding=(dp(14), dp(18), dp(14), dp(18)),
+            spacing=dp(16),
+        )
         with self.menu_layout.canvas.before:
-            Color(0.3, 0.3, 0.3, 0.6)
-            self.bg_rect = RoundedRectangle(radius=[20])
+            Color(0.06, 0.09, 0.14, 0.98)
+            self.menu_bg = RoundedRectangle(radius=[dp(30)])
+        self.menu_layout.bind(pos=self._update_menu_bg, size=self._update_menu_bg)
 
-        self.menu_layout.bind(pos=self.update_bg, size=self.update_bg)
+        brand_box = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(96), spacing=dp(2))
+        brand_box.add_widget(
+            MDLabel(
+                text="Drive",
+                theme_text_color="Custom",
+                text_color=(0.98, 0.99, 1, 1),
+                bold=True,
+                font_style="Display",
+                role="small",
+            )
+        )
+        brand_box.add_widget(
+            MDLabel(
+                text="Media + telemetry",
+                theme_text_color="Custom",
+                text_color=(0.45, 0.77, 1, 1),
+            )
+        )
+        self.menu_layout.add_widget(brand_box)
 
-        def create_menu_button(icon_name, screen_name):
-            btn = MDIconButton(icon=icon_name)
-            btn.font_size = "64sp"
-            btn.theme_icon_color = "Custom"
-            btn.icon_color = (1, 1, 1, 1)
-            btn.size_hint=(1, 1)
-            btn.bind(on_press=lambda inst: self.change_screen(screen_name))
-            return btn
-
-        button_grid = GridLayout(cols=1, rows=4, spacing=20)
-
-        for icon, name in [
-            ("home", "home"),
-            ("music-note", "music"),
-            ("map", "maps"),
-            ("cog", "settings")
+        self.nav_buttons = {}
+        for icon, label, name in [
+            ("home-variant", "Home", "home"),
+            ("music-note", "Music", "music"),
+            ("map", "Map", "maps"),
+            ("cog", "Setup", "settings"),
         ]:
-            button_grid.add_widget(create_menu_button(icon, name))
+            button = NavButton(icon_name=icon, label_text=label)
+            button.bind(on_release=lambda _, screen=name: self.change_screen(screen))
+            self.nav_buttons[name] = button
+            self.menu_layout.add_widget(button)
 
-        self.menu_layout.add_widget(button_grid)
-        self.add_widget(self.menu_layout)
+        self.menu_layout.add_widget(BoxLayout())
+        self.menu_layout.add_widget(
+            MDLabel(
+                text="1024 x 600 layout",
+                size_hint_y=None,
+                height=dp(28),
+                halign="center",
+                theme_text_color="Custom",
+                text_color=(0.36, 0.43, 0.51, 1),
+            )
+        )
 
-        # -------- SCREEN MANAGER --------
+        content_shell = BoxLayout(orientation="vertical")
+        with content_shell.canvas.before:
+            Color(0.05, 0.07, 0.11, 0.72)
+            self.content_bg = RoundedRectangle(radius=[dp(34)])
+        content_shell.bind(pos=self._update_content_bg, size=self._update_content_bg)
+
         self.sm = ScreenManager()
         self.sm.add_widget(HomeScreen(name="home"))
         self.sm.add_widget(MusicScreen(name="music"))
         self.sm.add_widget(MapScreen(name="maps"))
         self.sm.add_widget(SettingsScreen(name="settings"))
+        content_shell.add_widget(self.sm)
 
-        self.add_widget(self.sm)
+        shell.add_widget(self.menu_layout)
+        shell.add_widget(content_shell)
+        self.add_widget(shell)
 
-    def update_bg(self, *args):
-        self.bg_rect.pos = self.menu_layout.pos
-        self.bg_rect.size = self.menu_layout.size
+        self.change_screen("home")
+
+    def _update_background(self, *_):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+        self.glow_left.pos = (self.x - dp(120), self.top - dp(320))
+        self.glow_right.pos = (self.right - dp(260), self.y - dp(120))
+
+    def _update_menu_bg(self, *_):
+        self.menu_bg.pos = self.menu_layout.pos
+        self.menu_bg.size = self.menu_layout.size
+
+    def _update_content_bg(self, instance, *_):
+        self.content_bg.pos = instance.pos
+        self.content_bg.size = instance.size
 
     def change_screen(self, name):
         self.sm.current = name
+        for screen_name, button in self.nav_buttons.items():
+            button.set_active(screen_name == name)
 
 
-# ----------------------
-# APP
-# ----------------------
+class NavButton(ButtonBehavior, BoxLayout):
+    def __init__(self, icon_name, label_text, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = "vertical"
+        self.size_hint_y = None
+        self.height = dp(104)
+        self.padding = dp(10)
+        self.spacing = dp(4)
+
+        with self.canvas.before:
+            Color(0.1, 0.13, 0.18, 1)
+            self.bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(24)])
+        self.bind(pos=self._update_bg, size=self._update_bg)
+
+        self.icon = MDIconButton(icon=icon_name, pos_hint={"center_x": 0.5})
+        self.icon.font_size = dp(36)
+        self.icon.theme_icon_color = "Custom"
+        self.icon.icon_color = (0.57, 0.65, 0.75, 1)
+        self.label = MDLabel(
+            text=label_text,
+            halign="center",
+            theme_text_color="Custom",
+            text_color=(0.57, 0.65, 0.75, 1),
+            bold=True,
+        )
+        self.add_widget(self.icon)
+        self.add_widget(self.label)
+
+    def _update_bg(self, *_):
+        self.bg.pos = self.pos
+        self.bg.size = self.size
+
+    def set_active(self, active):
+        if active:
+            self.bg.radius = [dp(24)]
+            self.icon.icon_color = (0.97, 0.98, 1, 1)
+            self.label.text_color = (0.97, 0.98, 1, 1)
+            self.canvas.before.clear()
+            with self.canvas.before:
+                Color(0.17, 0.4, 0.64, 1)
+                self.bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(24)])
+        else:
+            self.canvas.before.clear()
+            with self.canvas.before:
+                Color(0.1, 0.13, 0.18, 1)
+                self.bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(24)])
+            self.icon.icon_color = (0.57, 0.65, 0.75, 1)
+            self.label.text_color = (0.57, 0.65, 0.75, 1)
+        self._update_bg()
+
+
 class CarPCApp(MDApp):
-
     def build(self):
+        self.theme_cls.theme_style = "Dark"
         Window.fullscreen = True
         return MainScreen()
 
