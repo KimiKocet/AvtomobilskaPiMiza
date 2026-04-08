@@ -70,14 +70,14 @@ class MediaPanel(MDCard):
 
         controls_box = BoxLayout(
             orientation="horizontal",
-            spacing=dp(14),
+            spacing=dp(22),
             size_hint_y=None,
-            height=dp(78),
+            height=dp(104),
         )
 
-        self.btn_prev = self._build_button("skip-previous", dp(42))
-        self.btn_play = self._build_button("play-circle", dp(64), accent=True)
-        self.btn_next = self._build_button("skip-next", dp(42))
+        self.btn_prev = self._build_button("skip-previous", dp(54))
+        self.btn_play = self._build_button("play-circle", dp(84), accent=True)
+        self.btn_next = self._build_button("skip-next", dp(54))
 
         self.btn_prev.bind(on_release=self.prev_track)
         self.btn_play.bind(on_release=self.toggle_play)
@@ -117,6 +117,8 @@ class MediaPanel(MDCard):
         button = MDIconButton(icon=icon_name, font_size=font_size)
         button.theme_icon_color = "Custom"
         button.icon_color = (0.96, 0.98, 1, 1) if accent else (0.78, 0.84, 0.92, 1)
+        button.size_hint = (None, None)
+        button.size = (dp(92), dp(92)) if accent else (dp(78), dp(78))
         return button
 
     def _sync_source(self, *_):
