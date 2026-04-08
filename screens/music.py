@@ -20,7 +20,6 @@ class MusicScreen(Screen):
             spacing=dp(10),
             radius=[dp(30)],
             elevation=0,
-            theme_bg_color="Custom",
             md_bg_color=(0.08, 0.11, 0.16, 0.98),
             size_hint=(0.42, 1),
         )
@@ -30,8 +29,7 @@ class MusicScreen(Screen):
                 theme_text_color="Custom",
                 text_color=(0.98, 0.99, 1, 1),
                 bold=True,
-                font_style="Display",
-                role="small",
+                font_style="H4",
             )
         )
         left.add_widget(
@@ -61,7 +59,6 @@ class _FeatureCard(MDCard):
         self.spacing = dp(6)
         self.radius = [dp(24)]
         self.elevation = 0
-        self.theme_bg_color = "Custom"
         self.md_bg_color = (0.11, 0.15, 0.21, 1)
         self.size_hint_y = None
         self.height = dp(116)

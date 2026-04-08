@@ -121,7 +121,6 @@ class StatCard(MDCard):
         self.spacing = dp(8)
         self.radius = [dp(24)]
         self.elevation = 0
-        self.theme_bg_color = "Custom"
         self.md_bg_color = (0.08, 0.11, 0.16, 0.98)
 
         self.add_widget(
@@ -138,8 +137,7 @@ class StatCard(MDCard):
             theme_text_color="Custom",
             text_color=(0.98, 0.99, 1, 1),
             bold=True,
-            font_style="Headline",
-            role="small",
+            font_style="H5",
         )
         self.hint_label = MDLabel(
             text=hint,

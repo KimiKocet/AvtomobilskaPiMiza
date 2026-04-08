@@ -88,7 +88,6 @@ class SettingsScreen(Screen):
             spacing=dp(14),
             radius=[dp(30)],
             elevation=0,
-            theme_bg_color="Custom",
             md_bg_color=(0.08, 0.11, 0.16, 0.98),
             size_hint=(0.5, 1),
         )
@@ -98,8 +97,7 @@ class SettingsScreen(Screen):
                 theme_text_color="Custom",
                 text_color=(0.98, 0.99, 1, 1),
                 bold=True,
-                font_style="Headline",
-                role="small",
+                font_style="H5",
             )
         )
         card.add_widget(

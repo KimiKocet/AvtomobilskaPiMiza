@@ -27,7 +27,6 @@ class MediaPanel(MDCard):
         self.size = (dp(360), dp(250))
         self.radius = [dp(28)]
         self.elevation = 0
-        self.theme_bg_color = "Custom"
         self.md_bg_color = (0.09, 0.12, 0.17, 0.96)
 
         self.bus = None
@@ -53,8 +52,7 @@ class MediaPanel(MDCard):
             theme_text_color="Custom",
             text_color=(0.98, 0.99, 1, 1),
             bold=True,
-            font_style="Headline",
-            role="small",
+            font_style="H5",
         )
         self.artist_label = MDLabel(
             text=self.artist,
@@ -205,7 +203,6 @@ class _Chip(MDCard):
         self.size = (dp(118), dp(30))
         self.radius = [dp(15)]
         self.elevation = 0
-        self.theme_bg_color = "Custom"
         self.md_bg_color = (0.14, 0.18, 0.24, 1)
         self.padding = (dp(12), 0)
         self.add_widget(
@@ -226,7 +223,6 @@ class _MiniStat(MDCard):
         self.spacing = dp(2)
         self.radius = [dp(18)]
         self.elevation = 0
-        self.theme_bg_color = "Custom"
         self.md_bg_color = (0.12, 0.15, 0.2, 1)
         self.add_widget(
             MDLabel(

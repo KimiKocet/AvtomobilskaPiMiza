@@ -69,8 +69,7 @@ class MainScreen(FloatLayout):
                 theme_text_color="Custom",
                 text_color=(0.98, 0.99, 1, 1),
                 bold=True,
-                font_style="Display",
-                role="small",
+                font_style="H4",
             )
         )
         brand_box.add_widget(

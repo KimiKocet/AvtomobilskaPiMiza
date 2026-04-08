@@ -31,7 +31,6 @@ class MapScreen(Screen):
             padding=dp(18),
             radius=[dp(26)],
             elevation=0,
-            theme_bg_color="Custom",
             md_bg_color=(0.08, 0.11, 0.16, 0.98),
             size_hint_y=None,
             height=dp(86),
@@ -42,8 +41,7 @@ class MapScreen(Screen):
                 theme_text_color="Custom",
                 text_color=(0.98, 0.99, 1, 1),
                 bold=True,
-                font_style="Headline",
-                role="small",
+                font_style="H5",
             )
         )
         header.add_widget(
@@ -59,7 +57,6 @@ class MapScreen(Screen):
             padding=dp(10),
             radius=[dp(30)],
             elevation=0,
-            theme_bg_color="Custom",
             md_bg_color=(0.05, 0.08, 0.12, 1),
         )
 
