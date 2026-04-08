@@ -3,7 +3,7 @@ from kivy.metrics import dp
 from kivy.properties import StringProperty
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
-from kivymd.uix.button import MDIconButton
+from kivymd.uix.button import MDFloatingActionButton, MDIconButton
 from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
 
@@ -75,9 +75,9 @@ class MediaPanel(MDCard):
             height=dp(104),
         )
 
-        self.btn_prev = self._build_button("skip-previous", dp(54))
-        self.btn_play = self._build_button("play-circle", dp(84), accent=True)
-        self.btn_next = self._build_button("skip-next", dp(54))
+        self.btn_prev = self._build_button("skip-previous", "52sp")
+        self.btn_play = self._build_button("play", "42sp", accent=True)
+        self.btn_next = self._build_button("skip-next", "52sp")
 
         self.btn_prev.bind(on_release=self.prev_track)
         self.btn_play.bind(on_release=self.toggle_play)
@@ -114,11 +114,20 @@ class MediaPanel(MDCard):
         self.bind(state=lambda _, value: self.state_stat.set_value(value))
 
     def _build_button(self, icon_name, font_size, accent=False):
-        button = MDIconButton(icon=icon_name, font_size=font_size)
-        button.theme_icon_color = "Custom"
-        button.icon_color = (0.96, 0.98, 1, 1) if accent else (0.78, 0.84, 0.92, 1)
-        button.size_hint = (None, None)
-        button.size = (dp(92), dp(92)) if accent else (dp(78), dp(78))
+        if accent:
+            button = MDFloatingActionButton(icon=icon_name)
+            button.md_bg_color = (0.22, 0.62, 0.95, 1)
+            button.theme_text_color = "Custom"
+            button.text_color = (1, 1, 1, 1)
+            button.elevation_normal = 0
+            button.elevation_raised = 0
+            button.user_font_size = font_size
+            return button
+
+        button = MDIconButton(icon=icon_name)
+        button.theme_text_color = "Custom"
+        button.text_color = (0.78, 0.84, 0.92, 1)
+        button.user_font_size = font_size
         return button
 
     def _sync_source(self, *_):
@@ -168,7 +177,7 @@ class MediaPanel(MDCard):
             self.artist = metadata.get("xesam:artist", ["Unknown"])[0]
             self.source = "Spotify"
             self.state = self.spotify.PlaybackStatus
-            self.btn_play.icon = "pause-circle" if self.spotify.PlaybackStatus == "Playing" else "play-circle"
+            self.btn_play.icon = "pause" if self.spotify.PlaybackStatus == "Playing" else "play"
             return
         except Exception:
             self.spotify = None
@@ -186,7 +195,7 @@ class MediaPanel(MDCard):
                 self.artist = track.get("Artist", "Unknown")
                 self.source = "Bluetooth"
                 self.state = self.player.Status.title()
-                self.btn_play.icon = "pause-circle" if self.player.Status == "playing" else "play-circle"
+                self.btn_play.icon = "pause" if self.player.Status == "playing" else "play"
                 return
         except Exception:
             self.player = None
@@ -195,7 +204,7 @@ class MediaPanel(MDCard):
         self.artist = "Connect Spotify or Bluetooth"
         self.source = "Idle"
         self.state = "Waiting"
-        self.btn_play.icon = "play-circle"
+        self.btn_play.icon = "play"
 
 
 class _Chip(MDCard):
