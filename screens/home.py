@@ -50,9 +50,10 @@ class HomeScreen(Screen):
         root.add_widget(content)
         self.add_widget(root)
 
-        self.demo_rpm = 1100
+        self.demo_rpm = 1200
         self.demo_gear = 1
-        self.demo_phase = "up"
+        self.demo_state = "start_fall"
+        self.demo_state_time = 0.0
         Clock.schedule_interval(self.refresh_dashboard, 1.0 / 20.0)
         Clock.schedule_interval(self.refresh_clock, 1)
 
@@ -66,8 +67,7 @@ class HomeScreen(Screen):
             speed = max(float(obd_service.speed or 0), 0)
             gear = self._gear_for_speed(speed)
         else:
-            rpm, speed, gear = self._advance_demo_powertrain()
-            rpm = self.demo_rpm
+            rpm, speed, gear = self._advance_demo_powertrain(dt)
 
         self.gauge.rpm = rpm
         self.gauge.speed = speed
@@ -83,34 +83,83 @@ class HomeScreen(Screen):
             return "P"
         if speed < 20:
             return "1"
-        if speed < 40:
+        if speed < 35:
             return "2"
-        if speed < 65:
+        if speed < 55:
             return "3"
-        if speed < 95:
+        if speed < 80:
             return "4"
+        if speed < 110:
+            return "5"
         return "6"
 
-    def _advance_demo_powertrain(self):
-        if self.demo_phase == "up":
-            self.demo_rpm += 95 - (self.demo_gear * 4)
+    def _advance_demo_powertrain(self, dt):
+        self.demo_state_time += dt
+
+        if self.demo_state == "start_fall":
+            progress = min(self.demo_state_time / 3.0, 1.0)
+            self.demo_rpm = 1200 - (300 * progress)
+            if progress >= 1.0:
+                self._set_demo_state("upshift_run")
+                self.demo_rpm = 900
+                self.demo_gear = 1
+            return self.demo_rpm, 0, "P"
+
+        if self.demo_state == "upshift_run":
+            ramp_rate = max(920 - (self.demo_gear * 65), 520)
+            self.demo_rpm += ramp_rate * dt
+
             if self.demo_rpm >= 5000:
                 if self.demo_gear < 6:
                     self.demo_gear += 1
-                    self.demo_rpm = 3200 - ((self.demo_gear - 1) * 90)
-                else:
-                    self.demo_phase = "down"
-        else:
-            self.demo_rpm -= 38
-            if self.demo_rpm <= 1900 and self.demo_gear > 1:
-                self.demo_gear -= 1
-                self.demo_rpm = 2800 + ((self.demo_gear - 1) * 140)
-            elif self.demo_rpm <= 1100 and self.demo_gear == 1:
-                self.demo_phase = "up"
-                self.demo_rpm = 1200
+                    self.demo_rpm = 3300 - ((self.demo_gear - 2) * 120)
+                    if self.demo_gear == 6:
+                        self._set_demo_state("downshift_run")
 
-        speed = self._demo_speed_from_powertrain(self.demo_rpm, self.demo_gear)
-        return self.demo_rpm, speed, str(self.demo_gear)
+            speed = self._demo_speed_from_powertrain(self.demo_rpm, self.demo_gear)
+            return self.demo_rpm, speed, str(self.demo_gear)
+
+        if self.demo_state == "downshift_run":
+            self.demo_rpm -= 300 * dt
+            if self.demo_gear > 1 and self.demo_rpm <= 3000:
+                self.demo_gear -= 1
+                self.demo_rpm = min(3600 + (self.demo_gear * 70), 3900)
+
+            if self.demo_gear == 1 and self.demo_rpm <= 1000:
+                self.demo_rpm = 1000
+                self._set_demo_state("idle_hold")
+                return self.demo_rpm, 0, "P"
+
+            speed = self._demo_speed_from_powertrain(self.demo_rpm, self.demo_gear)
+            return self.demo_rpm, speed, str(self.demo_gear)
+
+        if self.demo_state == "idle_hold":
+            self.demo_rpm = 1000
+            if self.demo_state_time >= 3.0:
+                self._set_demo_state("engine_off")
+            return self.demo_rpm, 0, "P"
+
+        if self.demo_state == "engine_off":
+            progress = min(self.demo_state_time / 1.2, 1.0)
+            self.demo_rpm = max(1000 * (1.0 - progress), 0)
+            if progress >= 1.0:
+                self.demo_rpm = 0
+                self._set_demo_state("off_pause")
+            return self.demo_rpm, 0, "P"
+
+        if self.demo_state == "off_pause":
+            self.demo_rpm = 0
+            if self.demo_state_time >= 1.8:
+                self.demo_rpm = 1200
+                self.demo_gear = 1
+                self._set_demo_state("start_fall")
+            return self.demo_rpm, 0, "P"
+
+        return self.demo_rpm, 0, "P"
+
+    def _set_demo_state(self, state):
+        self.demo_state = state
+        self.demo_state_time = 0.0
 
     @staticmethod
     def _demo_speed_from_powertrain(rpm, gear):

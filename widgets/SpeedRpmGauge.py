@@ -10,7 +10,8 @@ from kivy.uix.label import Label
 class SpeedRpmGauge(FloatLayout):
     speed = NumericProperty(0)
     rpm = NumericProperty(0)
-    max_rpm = NumericProperty(10000)
+    max_rpm = NumericProperty(6500)
+    redline_rpm = NumericProperty(6000)
     gear_label = StringProperty("D")
 
     start_angle = 216
@@ -19,9 +20,10 @@ class SpeedRpmGauge(FloatLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        self.scale_values = [0, 1, 2, 3, 4, 5, 6]
         self.scale_labels = []
-        for value in range(11):
-            color = (0.96, 0.27, 0.24, 1) if value >= 8 else (0.83, 0.85, 0.89, 1)
+        for value in self.scale_values:
+            color = (0.96, 0.27, 0.24, 1) if value >= 6 else (0.83, 0.85, 0.89, 1)
             label = self._make_label(str(value), dp(24), color, size=(dp(40), dp(28)), italic=True)
             self.scale_labels.append(label)
 
@@ -100,12 +102,12 @@ class SpeedRpmGauge(FloatLayout):
         self._layout_labels(cx, cy, radius, inner_face_radius)
 
     def _draw_ticks(self, cx, cy, radius):
-        total_ticks = 51
+        total_ticks = 27
         for index in range(total_ticks):
             ratio = index / (total_ticks - 1)
-            value = ratio * 10
+            value = ratio * (self.max_rpm / 1000.0)
             angle = math.radians(self._angle_for_ratio(ratio))
-            is_major = index % 5 == 0
+            is_major = index % 4 == 0
 
             outer = radius * 0.96
             inner = outer - (dp(24) if is_major else dp(11))
@@ -115,7 +117,7 @@ class SpeedRpmGauge(FloatLayout):
             x2 = cx + outer * math.cos(angle)
             y2 = cy + outer * math.sin(angle)
 
-            if value >= 8:
+            if value >= (self.redline_rpm / 1000.0):
                 Color(0.97, 0.24, 0.24, 0.95)
             else:
                 Color(0.8, 0.82, 0.84, 0.92 if is_major else 0.66)
@@ -142,8 +144,9 @@ class SpeedRpmGauge(FloatLayout):
 
     def _layout_labels(self, cx, cy, radius, inner_face_radius):
         label_radius = radius * 0.79
-        for value, label in enumerate(self.scale_labels):
-            angle = math.radians(self._angle_for_ratio(value / 10.0))
+        max_value = self.max_rpm / 1000.0
+        for value, label in zip(self.scale_values, self.scale_labels):
+            angle = math.radians(self._angle_for_ratio(value / max_value))
             x = cx + label_radius * math.cos(angle)
             y = cy + label_radius * math.sin(angle)
             label.center = (x, y)
