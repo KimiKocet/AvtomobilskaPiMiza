@@ -22,7 +22,7 @@ class MusicScreen(Screen):
         super().__init__(**kwargs)
         self.playlists = []
         self.playlist_tiles = {}
-        self.selected_playlist_id = None
+        self.selected_playlist = None
 
         root = BoxLayout(orientation="horizontal", padding=dp(22), spacing=dp(18))
 
@@ -32,17 +32,17 @@ class MusicScreen(Screen):
             spacing=dp(12),
             radius=[dp(30)],
             elevation=0,
-            size_hint=(0.44, 1),
+            size_hint=(0.42, 1),
         )
         self.title_label = MDLabel(
-            text="Spotify Playlists",
+            text="Spotify",
             theme_text_color="Custom",
             bold=True,
             font_style="H4",
             adaptive_height=True,
         )
         self.copy_label = MDLabel(
-            text="Link your Premium account, browse playlists, and launch one on an active Spotify Connect device.",
+            text="Clean playlist launch from the dashboard.",
             theme_text_color="Custom",
             adaptive_height=True,
         )
@@ -52,44 +52,58 @@ class MusicScreen(Screen):
             adaptive_height=True,
         )
         self.account_label = MDLabel(
-            text="Account: Not connected",
+            text="Account  Not connected",
             theme_text_color="Custom",
             adaptive_height=True,
         )
         self.device_label = MDLabel(
-            text="Device: No Spotify device",
+            text="Device  No Spotify device",
             theme_text_color="Custom",
             adaptive_height=True,
         )
+        self.playlists_label = MDLabel(
+            text="Playlists",
+            theme_text_color="Custom",
+            adaptive_height=True,
+            bold=True,
+        )
 
-        button_row = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(48))
-        self.connect_button = _MusicButton("Connect Spotify")
+        self.selected_card = _SelectedPlaylistCard()
+        self.selected_card.play_button.bind(on_release=lambda *_: self.play_playlist())
+
+        self.playlist_list = GridLayout(cols=1, spacing=dp(8), size_hint_y=None)
+        self.playlist_list.bind(minimum_height=self.playlist_list.setter("height"))
+        self.playlist_scroll = ScrollView(bar_width=dp(5), do_scroll_x=False)
+        self.playlist_scroll.add_widget(self.playlist_list)
+
+        self.connect_button = _MusicButton("Connect")
         self.refresh_button = _MusicButton("Refresh", accent=False)
         self.sign_out_button = _MusicButton("Sign Out", accent=False)
         self.connect_button.bind(on_release=self.connect_spotify)
         self.refresh_button.bind(on_release=self.refresh_playlists)
         self.sign_out_button.bind(on_release=self.sign_out)
+
+        button_row = BoxLayout(
+            orientation="horizontal",
+            spacing=dp(10),
+            size_hint_y=None,
+            height=dp(48),
+        )
         button_row.add_widget(self.connect_button)
         button_row.add_widget(self.refresh_button)
         button_row.add_widget(self.sign_out_button)
-
-        self.selected_card = _SelectedPlaylistCard()
-
-        self.playlist_list = GridLayout(cols=1, spacing=dp(10), size_hint_y=None)
-        self.playlist_list.bind(minimum_height=self.playlist_list.setter("height"))
-        playlist_scroll = ScrollView(bar_width=dp(6), do_scroll_x=False)
-        playlist_scroll.add_widget(self.playlist_list)
 
         self.left.add_widget(self.title_label)
         self.left.add_widget(self.copy_label)
         self.left.add_widget(self.status_label)
         self.left.add_widget(self.account_label)
         self.left.add_widget(self.device_label)
-        self.left.add_widget(button_row)
         self.left.add_widget(self.selected_card)
-        self.left.add_widget(playlist_scroll)
+        self.left.add_widget(self.playlists_label)
+        self.left.add_widget(self.playlist_scroll)
+        self.left.add_widget(button_row)
 
-        right = AnchorLayout(size_hint=(0.56, 1))
+        right = AnchorLayout(size_hint=(0.58, 1))
         right.add_widget(MediaPanel(compact=True, size_hint=(0.94, 0.78)))
 
         root.add_widget(self.left)
@@ -116,40 +130,39 @@ class MusicScreen(Screen):
         self.title_label.text_color = palette["text"]
         self.copy_label.text_color = palette["muted"]
         self.status_label.text_color = palette["accent"]
-        self.account_label.text_color = palette["text"]
+        self.account_label.text_color = palette["subtle"]
         self.device_label.text_color = palette["subtle"]
+        self.playlists_label.text_color = palette["text"]
+        self.selected_card.apply_theme()
         self.connect_button.apply_theme()
         self.refresh_button.apply_theme()
         self.sign_out_button.apply_theme()
-        self.selected_card.apply_theme()
         for tile in self.playlist_tiles.values():
             tile.apply_theme()
 
     def _sync_spotify_state(self, *_):
         if spotify_service.configured:
-            self.copy_label.text = (
-                "Link your Premium account, browse playlists, and launch one on an active Spotify Connect device."
-            )
+            self.copy_label.text = "Quick playlist launch for the car."
         else:
-            self.copy_label.text = "Create spotify_config.json in the project root, then tap Connect Spotify."
+            self.copy_label.text = "Add spotify_config.json, then connect here."
 
         self.status_label.text = spotify_service.status
-        self.account_label.text = f"Account: {spotify_service.account_name}"
-        self.device_label.text = f"Device: {spotify_service.device_name}"
-        self.connect_button.set_text("Reconnect" if spotify_service.connected else "Connect Spotify")
+        self.account_label.text = f"Account  {spotify_service.account_name}"
+        self.device_label.text = f"Device  {spotify_service.device_name}"
+        self.connect_button.set_text("Reconnect" if spotify_service.connected else "Connect")
         self.connect_button.disabled = spotify_service.busy
-        self.refresh_button.disabled = spotify_service.busy
-        self.sign_out_button.disabled = spotify_service.busy
+        self.refresh_button.disabled = spotify_service.busy or not spotify_service.configured
+        self.sign_out_button.disabled = spotify_service.busy or not spotify_service.configured
 
         if not spotify_service.configured and not self.playlists:
             self.selected_card.set_message(
                 "Spotify setup needed",
-                "Add your Spotify Client ID to spotify_config.json, then use Connect Spotify here on the Pi.",
+                "Add your client ID to spotify_config.json, then connect from this screen.",
             )
         elif spotify_service.configured and not self.playlists and not spotify_service.busy:
             self.selected_card.set_message(
                 "No playlist loaded",
-                "Tap Refresh to load your Spotify playlists after you sign in.",
+                "Tap Refresh after sign-in to load your playlists.",
             )
 
         self._apply_theme()
@@ -164,20 +177,23 @@ class MusicScreen(Screen):
         spotify_service.sign_out()
         self.playlists = []
         self.playlist_tiles = {}
-        self.selected_playlist_id = None
+        self.selected_playlist = None
         self.playlist_list.clear_widgets()
-        self.selected_card.set_message("Spotify disconnected", "Tap Connect Spotify to link the dashboard again.")
+        self.selected_card.set_message("Spotify disconnected", "Use Connect when you want to link it again.")
         self._sync_spotify_state()
 
-    def open_playlist(self, playlist, *_):
-        self.selected_playlist_id = playlist["id"]
+    def select_playlist(self, playlist, *_):
+        self.selected_playlist = playlist
         self._refresh_playlist_tile_states()
         self.selected_card.set_loading(playlist)
         self._apply_theme()
         threading.Thread(target=self._load_playlist_worker, args=(playlist,), daemon=True).start()
 
-    def play_playlist(self, playlist, offset=None, *_):
-        threading.Thread(target=self._play_playlist_worker, args=(playlist, offset), daemon=True).start()
+    def play_playlist(self, playlist=None, offset=None, *_):
+        target_playlist = playlist or self.selected_playlist
+        if not target_playlist:
+            return
+        threading.Thread(target=self._play_playlist_worker, args=(target_playlist, offset), daemon=True).start()
 
     def _connect_worker(self):
         try:
@@ -202,15 +218,18 @@ class MusicScreen(Screen):
 
     def _load_playlist_worker(self, playlist):
         try:
-            details = spotify_service.get_playlist_items(playlist["id"], limit=4)
+            details = spotify_service.get_playlist_items(playlist["id"], limit=3)
             items = details.get("items", [])
             note = ""
             if not items:
                 note = "No track preview returned for this playlist."
         except SpotifyError:
             items = []
-            note = "Track preview is unavailable for this playlist. You can still press Play."
-        Clock.schedule_once(lambda _dt, p=playlist, tracks=items, info=note: self._show_playlist_details(p, tracks, info), 0)
+            note = "Track preview is unavailable for this playlist. You can still play the full playlist."
+        Clock.schedule_once(
+            lambda _dt, data=playlist, tracks=items, fallback=note: self._show_playlist_details(data, tracks, fallback),
+            0,
+        )
 
     def _play_playlist_worker(self, playlist, offset):
         spotify_service.set_status(f'Starting "{playlist["name"]}"...', busy=True)
@@ -226,7 +245,7 @@ class MusicScreen(Screen):
         self.playlist_list.clear_widgets()
 
         if not playlists:
-            self.selected_playlist_id = None
+            self.selected_playlist = None
             self.selected_card.set_message("No playlists found", "Spotify returned no playlists for this account.")
             self._apply_theme()
             return
@@ -235,21 +254,19 @@ class MusicScreen(Screen):
             tile = _PlaylistTile(
                 title=playlist["name"],
                 subtitle=f'{playlist["owner"]}  |  {playlist["tracks_total"]} tracks',
-                body=playlist["description"] or "Tap View for a quick track preview, or Play to start the whole playlist.",
             )
-            tile.view_button.bind(on_release=lambda _btn, data=playlist: self.open_playlist(data))
-            tile.play_button.bind(on_release=lambda _btn, data=playlist: self.play_playlist(data))
+            tile.bind(on_release=lambda _tile, data=playlist: self.select_playlist(data))
             self.playlist_tiles[playlist["id"]] = tile
             self.playlist_list.add_widget(tile)
 
-        selected = next((item for item in playlists if item["id"] == self.selected_playlist_id), None) or playlists[0]
-        self.open_playlist(selected)
+        selected = next((item for item in playlists if self.selected_playlist and item["id"] == self.selected_playlist["id"]), None)
+        self.select_playlist(selected or playlists[0])
 
     def _show_playlist_details(self, playlist, items, fallback_note):
-        if playlist["id"] != self.selected_playlist_id:
+        if not self.selected_playlist or playlist["id"] != self.selected_playlist["id"]:
             return
 
-        body = playlist["description"] or fallback_note or "Tap a track below to jump into this playlist."
+        body = playlist["description"] or fallback_note or "Select Play Playlist to launch this list on your active device."
         self.selected_card.set_playlist(playlist, body)
         self.selected_card.tracks_box.clear_widgets()
 
@@ -260,14 +277,15 @@ class MusicScreen(Screen):
                 subtitle=item["artists"],
                 hint=item["duration_label"],
             )
-            row.bind(on_release=lambda _row, data=playlist, position=index: self.play_playlist(data, position))
+            row.bind(on_release=lambda _row, position=index: self.play_playlist(offset=position))
             self.selected_card.tracks_box.add_widget(row)
 
         self._apply_theme()
 
     def _refresh_playlist_tile_states(self):
+        selected_id = self.selected_playlist["id"] if self.selected_playlist else None
         for playlist_id, tile in self.playlist_tiles.items():
-            tile.set_active(playlist_id == self.selected_playlist_id)
+            tile.set_active(playlist_id == selected_id)
         self._apply_theme()
 
 
@@ -327,8 +345,13 @@ class _SelectedPlaylistCard(MDCard):
         self.radius = [dp(24)]
         self.elevation = 0
         self.size_hint_y = None
-        self.height = dp(296)
+        self.height = dp(248)
 
+        self.eyebrow_label = MDLabel(
+            text="Selected",
+            theme_text_color="Custom",
+            adaptive_height=True,
+        )
         self.title_label = MDLabel(
             text="No playlist loaded",
             theme_text_color="Custom",
@@ -345,13 +368,16 @@ class _SelectedPlaylistCard(MDCard):
             theme_text_color="Custom",
             adaptive_height=True,
         )
-        self.tracks_box = GridLayout(cols=1, spacing=dp(8), size_hint_y=None)
+        self.tracks_box = GridLayout(cols=1, spacing=dp(6), size_hint_y=None)
         self.tracks_box.bind(minimum_height=self.tracks_box.setter("height"))
+        self.play_button = _MusicButton("Play Playlist")
 
+        self.add_widget(self.eyebrow_label)
         self.add_widget(self.title_label)
         self.add_widget(self.meta_label)
         self.add_widget(self.body_label)
         self.add_widget(self.tracks_box)
+        self.add_widget(self.play_button)
         theme_service.bind(mode=self.apply_theme)
         self.apply_theme()
 
@@ -360,40 +386,45 @@ class _SelectedPlaylistCard(MDCard):
         self.meta_label.text = ""
         self.body_label.text = body
         self.tracks_box.clear_widgets()
+        self.play_button.disabled = True
 
     def set_loading(self, playlist):
         self.title_label.text = playlist["name"]
         self.meta_label.text = f'{playlist["owner"]}  |  {playlist["tracks_total"]} tracks'
-        self.body_label.text = "Loading playlist preview..."
+        self.body_label.text = "Loading preview..."
         self.tracks_box.clear_widgets()
+        self.play_button.disabled = True
 
     def set_playlist(self, playlist, body):
         self.title_label.text = playlist["name"]
         self.meta_label.text = f'{playlist["owner"]}  |  {playlist["tracks_total"]} tracks'
         self.body_label.text = body
+        self.play_button.disabled = False
 
     def apply_theme(self, *_):
         palette = theme_service.palette
         self.md_bg_color = palette["card_soft"]
+        self.eyebrow_label.text_color = palette["accent"]
         self.title_label.text_color = palette["text"]
-        self.meta_label.text_color = palette["accent"]
+        self.meta_label.text_color = palette["subtle"]
         self.body_label.text_color = palette["muted"]
+        self.play_button.apply_theme()
         for child in self.tracks_box.children:
             if hasattr(child, "apply_theme"):
                 child.apply_theme()
 
 
-class _PlaylistTile(MDCard):
-    def __init__(self, title, subtitle, body, **kwargs):
+class _PlaylistTile(ButtonBehavior, MDCard):
+    def __init__(self, title, subtitle, **kwargs):
         super().__init__(**kwargs)
         self.active = False
         self.orientation = "vertical"
-        self.padding = dp(16)
-        self.spacing = dp(8)
-        self.radius = [dp(22)]
+        self.padding = dp(14)
+        self.spacing = dp(4)
+        self.radius = [dp(20)]
         self.elevation = 0
         self.size_hint_y = None
-        self.height = dp(150)
+        self.height = dp(84)
 
         self.title_label = MDLabel(
             text=title,
@@ -406,21 +437,8 @@ class _PlaylistTile(MDCard):
             theme_text_color="Custom",
             adaptive_height=True,
         )
-        self.body_label = MDLabel(
-            text=body,
-            theme_text_color="Custom",
-        )
-
-        action_row = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(40))
-        self.view_button = _MusicButton("View", accent=False)
-        self.play_button = _MusicButton("Play")
-        action_row.add_widget(self.view_button)
-        action_row.add_widget(self.play_button)
-
         self.add_widget(self.title_label)
         self.add_widget(self.subtitle_label)
-        self.add_widget(self.body_label)
-        self.add_widget(action_row)
         theme_service.bind(mode=self.apply_theme)
         self.apply_theme()
 
@@ -432,10 +450,7 @@ class _PlaylistTile(MDCard):
         palette = theme_service.palette
         self.md_bg_color = palette["nav_active"] if self.active else palette["card_alt"]
         self.title_label.text_color = palette["button_text"] if self.active else palette["text"]
-        self.subtitle_label.text_color = palette["button_text"] if self.active else palette["accent"]
-        self.body_label.text_color = palette["button_text"] if self.active else palette["muted"]
-        self.view_button.apply_theme()
-        self.play_button.apply_theme()
+        self.subtitle_label.text_color = palette["button_text"] if self.active else palette["muted"]
 
 
 class _TrackRow(ButtonBehavior, BoxLayout):
@@ -445,7 +460,7 @@ class _TrackRow(ButtonBehavior, BoxLayout):
         self.spacing = dp(10)
         self.padding = dp(10)
         self.size_hint_y = None
-        self.height = dp(54)
+        self.height = dp(46)
         self.corner_radius = [dp(18)]
 
         with self.canvas.before:
@@ -461,7 +476,7 @@ class _TrackRow(ButtonBehavior, BoxLayout):
             theme_text_color="Custom",
             bold=True,
         )
-        text_box = BoxLayout(orientation="vertical", spacing=dp(2))
+        text_box = BoxLayout(orientation="vertical", spacing=dp(1))
         self.title_label = MDLabel(
             text=title,
             theme_text_color="Custom",
@@ -476,7 +491,7 @@ class _TrackRow(ButtonBehavior, BoxLayout):
         self.hint_label = MDLabel(
             text=hint,
             size_hint=(None, 1),
-            width=dp(52),
+            width=dp(48),
             halign="right",
             theme_text_color="Custom",
         )
