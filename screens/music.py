@@ -78,18 +78,15 @@ class MusicScreen(Screen):
 
         button_row = BoxLayout(
             orientation="horizontal",
-            spacing=dp(10),
+            spacing=dp(8),
             size_hint_y=None,
-            height=dp(48),
+            height=dp(40),
         )
         button_row.add_widget(self.connect_button)
         button_row.add_widget(self.refresh_button)
         button_row.add_widget(self.sign_out_button)
 
-        self.left.add_widget(self.copy_label)
         self.left.add_widget(self.status_label)
-        self.left.add_widget(self.account_label)
-        self.left.add_widget(self.device_label)
         self.left.add_widget(self.selected_card)
         self.left.add_widget(self.playlists_label)
         self.left.add_widget(self.playlist_scroll)
@@ -119,10 +116,7 @@ class MusicScreen(Screen):
     def _apply_theme(self, *_):
         palette = theme_service.palette
         self.left.md_bg_color = palette["card"]
-        self.copy_label.text_color = palette["muted"]
         self.status_label.text_color = palette["accent"]
-        self.account_label.text_color = palette["subtle"]
-        self.device_label.text_color = palette["subtle"]
         self.playlists_label.text_color = palette["text"]
         self.selected_card.apply_theme()
         self.connect_button.apply_theme()
@@ -133,13 +127,10 @@ class MusicScreen(Screen):
 
     def _sync_spotify_state(self, *_):
         if spotify_service.configured:
-            self.copy_label.text = "Quick playlist launch for the car."
+            self.status_label.text = spotify_service.status
         else:
-            self.copy_label.text = "Add spotify_config.json, then connect here."
+            self.status_label.text = spotify_service.status
 
-        self.status_label.text = spotify_service.status
-        self.account_label.text = f"Account  {spotify_service.account_name}"
-        self.device_label.text = f"Device  {spotify_service.device_name}"
         self.connect_button.set_text("Reconnect" if spotify_service.connected else "Connect")
         self.connect_button.disabled = spotify_service.busy
         self.refresh_button.disabled = spotify_service.busy or not spotify_service.configured
@@ -285,11 +276,11 @@ class _MusicButton(ButtonBehavior, AnchorLayout):
         super().__init__(**kwargs)
         self.accent = accent
         self.size_hint_y = None
-        self.height = dp(46)
-        self.padding = (dp(14), 0)
+        self.height = dp(40)
+        self.padding = (dp(12), 0)
         self.anchor_x = "center"
         self.anchor_y = "center"
-        self.corner_radius = [dp(20)]
+        self.corner_radius = [dp(16)]
 
         with self.canvas.before:
             self.bg_color = Color(0, 0, 0, 1)
@@ -301,6 +292,7 @@ class _MusicButton(ButtonBehavior, AnchorLayout):
             halign="center",
             theme_text_color="Custom",
             bold=True,
+            font_size="12sp",
         )
         self.add_widget(self.label)
         theme_service.bind(mode=self.apply_theme)

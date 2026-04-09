@@ -181,29 +181,34 @@ class NavButton(ButtonBehavior, AnchorLayout):
         self.content = BoxLayout(
             orientation="vertical",
             size_hint=(1, 1),
-            spacing=dp(8),
+            spacing=dp(6),
             padding=(0, 0),
         )
+        
+        icon_anchor = AnchorLayout(anchor_x="center", anchor_y="center", size_hint=(1, 0.6))
         self.icon = MDIcon(
             icon=icon_name,
-            halign="center",
-            valign="middle",
             theme_text_color="Custom",
-            size_hint=(1, 0.6),
+            size_hint=(None, None),
+            size=(dp(40), dp(40)),
         )
         self.icon.font_size = dp(36)
         self.icon.text_color = (0.57, 0.65, 0.75, 1)
+        icon_anchor.add_widget(self.icon)
+        
+        label_anchor = AnchorLayout(anchor_x="center", anchor_y="center", size_hint=(1, 0.4))
         self.label = MDLabel(
             text=label_text,
-            halign="center",
-            valign="middle",
             theme_text_color="Custom",
             text_color=(0.57, 0.65, 0.75, 1),
             bold=True,
-            size_hint=(1, 0.4),
+            size_hint_y=None,
+            height=dp(16),
         )
-        self.content.add_widget(self.icon)
-        self.content.add_widget(self.label)
+        label_anchor.add_widget(self.label)
+        
+        self.content.add_widget(icon_anchor)
+        self.content.add_widget(label_anchor)
         self.add_widget(self.content)
         theme_service.bind(mode=self.apply_theme)
         self.apply_theme()
