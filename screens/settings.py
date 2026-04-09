@@ -1,5 +1,7 @@
 from kivy.clock import Clock
+from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -253,15 +255,22 @@ class SettingsScreen(Screen):
             Clock.schedule_once(lambda dt: self.refresh_devices(0), 1)
 
 
-class ActionPill(ButtonBehavior, MDCard):
+class ActionPill(ButtonBehavior, AnchorLayout):
     def __init__(self, text, accent=True, **kwargs):
         super().__init__(**kwargs)
         self.accent = accent
         self.size_hint_y = None
         self.height = dp(52)
         self.padding = (dp(18), 0)
-        self.radius = [dp(22)]
-        self.elevation = 0
+        self.anchor_x = "center"
+        self.anchor_y = "center"
+        self.corner_radius = [dp(22)]
+
+        with self.canvas.before:
+            self.bg_color = Color(0, 0, 0, 1)
+            self.bg = RoundedRectangle(pos=self.pos, size=self.size, radius=self.corner_radius)
+        self.bind(pos=self._update_bg, size=self._update_bg)
+
         self.label = MDLabel(
             text=text,
             halign="center",
@@ -272,25 +281,34 @@ class ActionPill(ButtonBehavior, MDCard):
         theme_service.bind(mode=self.apply_theme)
         self.apply_theme()
 
+    def _update_bg(self, *_):
+        self.bg.pos = self.pos
+        self.bg.size = self.size
+
     def set_text(self, text):
         self.label.text = text
 
     def apply_theme(self, *_):
         palette = theme_service.palette
-        self.md_bg_color = palette["button_bg"] if self.accent else palette["chip"]
+        self.bg_color.rgba = palette["button_bg"] if self.accent else palette["chip"]
         self.label.text_color = palette["button_text"] if self.accent else palette["text"]
+        self._update_bg()
 
 
-class DeviceTile(ButtonBehavior, MDCard):
+class DeviceTile(ButtonBehavior, BoxLayout):
     def __init__(self, name, address, status, **kwargs):
         super().__init__(**kwargs)
         self.orientation = "horizontal"
         self.padding = dp(16)
         self.spacing = dp(10)
-        self.radius = [dp(22)]
-        self.elevation = 0
         self.size_hint_y = None
         self.height = dp(84)
+        self.corner_radius = [dp(22)]
+
+        with self.canvas.before:
+            self.bg_color = Color(0, 0, 0, 1)
+            self.bg = RoundedRectangle(pos=self.pos, size=self.size, radius=self.corner_radius)
+        self.bind(pos=self._update_bg, size=self._update_bg)
 
         text_box = BoxLayout(orientation="vertical", spacing=dp(2))
         self.name_label = MDLabel(text=name, theme_text_color="Custom", bold=True)
@@ -313,10 +331,15 @@ class DeviceTile(ButtonBehavior, MDCard):
         theme_service.bind(mode=self.apply_theme)
         self.apply_theme()
 
+    def _update_bg(self, *_):
+        self.bg.pos = self.pos
+        self.bg.size = self.size
+
     def apply_theme(self, *_):
         palette = theme_service.palette
-        self.md_bg_color = palette["card_soft"]
+        self.bg_color.rgba = palette["card_soft"]
         self.name_label.text_color = palette["text"]
         self.address_label.text_color = palette["muted"]
         self.status_chip.md_bg_color = palette["chip"]
         self.status_label.text_color = palette["accent_strong"]
+        self._update_bg()

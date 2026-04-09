@@ -1,6 +1,8 @@
 from kivy.clock import Clock
+from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp
 from kivy.properties import StringProperty
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
@@ -207,24 +209,41 @@ class MediaPanel(MDCard):
         self.btn_play.set_icon("play")
 
 
-class _ControlSurface(ButtonBehavior, MDCard):
+class _ControlSurface(ButtonBehavior, AnchorLayout):
     def __init__(self, icon_name, accent=False, **kwargs):
         super().__init__(**kwargs)
         self.icon_name = icon_name
         self.accent = accent
-        self.radius = [dp(24)]
-        self.elevation = 0
+        self.anchor_x = "center"
+        self.anchor_y = "center"
         self.padding = dp(6)
+        self.corner_radius = [dp(24)]
+
+        with self.canvas.before:
+            self.bg_color = Color(0, 0, 0, 1)
+            self.bg = RoundedRectangle(pos=self.pos, size=self.size, radius=self.corner_radius)
+        self.bind(pos=self._update_bg, size=self._update_bg)
+
         self.icon_widget = MDIcon(
             icon=icon_name,
             halign="center",
             valign="middle",
             theme_text_color="Custom",
             font_size="42sp" if accent else "36sp",
+            size_hint=(None, None),
+            size=(dp(58), dp(58)),
         )
+        self.icon_widget.bind(size=self._sync_icon_text)
         self.add_widget(self.icon_widget)
         theme_service.bind(mode=self.apply_theme)
         self.apply_theme()
+
+    def _update_bg(self, *_):
+        self.bg.pos = self.pos
+        self.bg.size = self.size
+
+    def _sync_icon_text(self, widget, size):
+        widget.text_size = size
 
     def set_icon(self, icon_name):
         self.icon_name = icon_name
@@ -232,8 +251,9 @@ class _ControlSurface(ButtonBehavior, MDCard):
 
     def apply_theme(self, *_):
         palette = theme_service.palette
-        self.md_bg_color = palette["accent_strong"] if self.accent else palette["card_soft"]
+        self.bg_color.rgba = palette["accent_strong"] if self.accent else palette["card_soft"]
         self.icon_widget.text_color = palette["button_text"] if self.accent else palette["text"]
+        self._update_bg()
 
 
 class _Chip(MDCard):
