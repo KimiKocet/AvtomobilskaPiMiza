@@ -180,30 +180,27 @@ class NavButton(ButtonBehavior, AnchorLayout):
 
         self.content = BoxLayout(
             orientation="vertical",
-            size_hint=(1, None),
-            height=dp(72),
+            size_hint=(1, 1),
             spacing=dp(8),
-            padding=(0, dp(2)),
+            padding=(0, 0),
         )
         self.icon = MDIcon(
             icon=icon_name,
             halign="center",
             valign="middle",
             theme_text_color="Custom",
-            size_hint=(1, None),
-            height=dp(40),
+            size_hint=(1, 0.6),
         )
         self.icon.font_size = dp(36)
         self.icon.text_color = (0.57, 0.65, 0.75, 1)
-        self.icon.bind(size=self._sync_icon_text)
         self.label = MDLabel(
             text=label_text,
             halign="center",
+            valign="middle",
             theme_text_color="Custom",
             text_color=(0.57, 0.65, 0.75, 1),
             bold=True,
-            size_hint=(1, None),
-            height=dp(20),
+            size_hint=(1, 0.4),
         )
         self.content.add_widget(self.icon)
         self.content.add_widget(self.label)
@@ -214,9 +211,6 @@ class NavButton(ButtonBehavior, AnchorLayout):
     def _update_bg(self, *_):
         self.bg.pos = self.pos
         self.bg.size = self.size
-
-    def _sync_icon_text(self, widget, size):
-        widget.text_size = size
 
     def set_active(self, active):
         self.active = active

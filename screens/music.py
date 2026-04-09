@@ -34,13 +34,6 @@ class MusicScreen(Screen):
             elevation=0,
             size_hint=(0.42, 1),
         )
-        self.title_label = MDLabel(
-            text="Spotify",
-            theme_text_color="Custom",
-            bold=True,
-            font_style="H4",
-            adaptive_height=True,
-        )
         self.copy_label = MDLabel(
             text="Clean playlist launch from the dashboard.",
             theme_text_color="Custom",
@@ -93,7 +86,6 @@ class MusicScreen(Screen):
         button_row.add_widget(self.refresh_button)
         button_row.add_widget(self.sign_out_button)
 
-        self.left.add_widget(self.title_label)
         self.left.add_widget(self.copy_label)
         self.left.add_widget(self.status_label)
         self.left.add_widget(self.account_label)
@@ -127,7 +119,6 @@ class MusicScreen(Screen):
     def _apply_theme(self, *_):
         palette = theme_service.palette
         self.left.md_bg_color = palette["card"]
-        self.title_label.text_color = palette["text"]
         self.copy_label.text_color = palette["muted"]
         self.status_label.text_color = palette["accent"]
         self.account_label.text_color = palette["subtle"]
