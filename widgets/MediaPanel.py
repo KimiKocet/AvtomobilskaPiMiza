@@ -111,7 +111,6 @@ class MediaPanel(MDCard):
         self.source_label.text_color = palette["accent"]
         self.title_label.text_color = palette["text"]
         self.artist_label.text_color = palette["muted"]
-        self.track_hint.text_color = palette["subtle"]
         self.status_chip.apply_theme()
         self.btn_prev.apply_theme()
         self.btn_play.apply_theme()
