@@ -50,8 +50,9 @@ class HomeScreen(Screen):
         root.add_widget(content)
         self.add_widget(root)
 
-        self.demo_rpm = 900
-        self.anim_dir = 1
+        self.demo_rpm = 1100
+        self.demo_gear = 1
+        self.demo_phase = "up"
         Clock.schedule_interval(self.refresh_dashboard, 1.0 / 20.0)
         Clock.schedule_interval(self.refresh_clock, 1)
 
@@ -63,19 +64,14 @@ class HomeScreen(Screen):
         if obd_service.connected:
             rpm = max(float(obd_service.rpm or 0), 0)
             speed = max(float(obd_service.speed or 0), 0)
+            gear = self._gear_for_speed(speed)
         else:
-            if self.demo_rpm >= 4200:
-                self.anim_dir = -1
-            elif self.demo_rpm <= 900:
-                self.anim_dir = 1
-
-            self.demo_rpm += 50 * self.anim_dir
+            rpm, speed, gear = self._advance_demo_powertrain()
             rpm = self.demo_rpm
-            speed = rpm / 38
 
         self.gauge.rpm = rpm
         self.gauge.speed = speed
-        self.gauge.gear_label = self._gear_for_speed(speed)
+        self.gauge.gear_label = gear
 
     def refresh_clock(self, dt):
         self.clock_card.set_value(strftime("%H:%M"), "Local time")
@@ -93,7 +89,40 @@ class HomeScreen(Screen):
             return "3"
         if speed < 95:
             return "4"
-        return "5"
+        return "6"
+
+    def _advance_demo_powertrain(self):
+        if self.demo_phase == "up":
+            self.demo_rpm += 95 - (self.demo_gear * 4)
+            if self.demo_rpm >= 5000:
+                if self.demo_gear < 6:
+                    self.demo_gear += 1
+                    self.demo_rpm = 3200 - ((self.demo_gear - 1) * 90)
+                else:
+                    self.demo_phase = "down"
+        else:
+            self.demo_rpm -= 38
+            if self.demo_rpm <= 1900 and self.demo_gear > 1:
+                self.demo_gear -= 1
+                self.demo_rpm = 2800 + ((self.demo_gear - 1) * 140)
+            elif self.demo_rpm <= 1100 and self.demo_gear == 1:
+                self.demo_phase = "up"
+                self.demo_rpm = 1200
+
+        speed = self._demo_speed_from_powertrain(self.demo_rpm, self.demo_gear)
+        return self.demo_rpm, speed, str(self.demo_gear)
+
+    @staticmethod
+    def _demo_speed_from_powertrain(rpm, gear):
+        gear_ratio = {
+            1: 95,
+            2: 72,
+            3: 58,
+            4: 47,
+            5: 39,
+            6: 33,
+        }
+        return max(rpm / gear_ratio.get(gear, 33), 0)
 
 
 class StatCard(MDCard):

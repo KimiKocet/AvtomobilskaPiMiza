@@ -16,12 +16,9 @@ class SpeedRpmGauge(FloatLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.speed_caption = self._build_label("SPEED", dp(18), (0.64, 0.72, 0.8, 1), 0.67)
+        self.speed_caption = self._build_label("RPM", dp(18), (0.64, 0.72, 0.8, 1), 0.67)
         self.speed_value = self._build_label("0", dp(132), (0.98, 0.99, 1, 1), 0.54, bold=True)
-        self.speed_unit = self._build_label("km/h", dp(24), (0.64, 0.72, 0.8, 1), 0.38)
-
-        self.rpm_value = self._build_label("0 RPM", dp(22), (0.95, 0.53, 0.31, 1), 0.21, bold=True)
-        self.status_label = self._build_label("Live cluster", dp(15), (0.72, 0.79, 0.88, 1), 0.12)
+        self.speed_unit = self._build_label("rev/min", dp(24), (0.64, 0.72, 0.8, 1), 0.38)
 
         self.gear_title = self._build_label("GEAR", dp(16), (0.58, 0.67, 0.75, 1), 0.78, x_hint=0.84)
         self.gear_value = self._build_label("D", dp(44), (0.98, 0.99, 1, 1), 0.69, x_hint=0.84, bold=True)
@@ -46,8 +43,7 @@ class SpeedRpmGauge(FloatLayout):
         return label
 
     def _update_values(self, *args):
-        self.speed_value.text = str(int(max(self.speed, 0)))
-        self.rpm_value.text = f"{int(max(self.rpm, 0))} RPM"
+        self.speed_value.text = str(int(max(self.rpm, 0)))
         self.gear_value.text = self.gear_label
         self.redraw()
 
