@@ -414,7 +414,7 @@ class _SelectedPlaylistCard(MDCard):
                 child.apply_theme()
 
 
-class _PlaylistTile(ButtonBehavior, MDCard):
+class _PlaylistTile(MDCard, ButtonBehavior):
     def __init__(self, title, subtitle, **kwargs):
         super().__init__(**kwargs)
         self.active = False
