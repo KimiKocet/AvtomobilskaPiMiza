@@ -53,7 +53,7 @@ class SettingsScreen(Screen):
         bt_body.add_widget(scroll)
         self.bt_card.add_widget(bt_body)
 
-        self.system_card = self._build_card("System")
+        self.system_card = self._build_card("System", subtitle="System configuration")
         system_body = BoxLayout(orientation="vertical", spacing=dp(16))
 
         self.appearance_card = self._build_subcard()
