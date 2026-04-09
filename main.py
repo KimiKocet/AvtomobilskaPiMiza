@@ -6,7 +6,7 @@ from kivy.config import Config
 Config.set("input", "mouse", "mouse,disable_on_activity,disable_multitouch")
 Config.set("graphics", "width", "1024")
 Config.set("graphics", "height", "600")
-Config.set("graphics", "fullscreen", "0")
+Config.set("graphics", "fullscreen", "auto")
 
 from kivy.core.window import Window
 from kivy.graphics import Color, Ellipse, RoundedRectangle
