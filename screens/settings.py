@@ -67,6 +67,17 @@ class SettingsScreen(Screen):
         appearance_body.add_widget(self.theme_button)
         self.appearance_card.add_widget(appearance_body)
 
+        self.maintenance_card = self._build_subcard()
+        maintenance_body = self._make_stack(spacing=dp(10))
+        self.maintenance_title = self._make_text("Maintenance", style="title")
+        self.maintenance_copy = self._make_text("Close the dashboard and return to the desktop for updates.", style="muted")
+        self.exit_button = ActionPill("Exit to Desktop", accent=False)
+        self.exit_button.bind(on_release=self.exit_app)
+        maintenance_body.add_widget(self.maintenance_title)
+        maintenance_body.add_widget(self.maintenance_copy)
+        maintenance_body.add_widget(self.exit_button)
+        self.maintenance_card.add_widget(maintenance_body)
+
         self.obd_card = self._build_subcard()
         obd_body = self._make_stack(spacing=dp(12))
         self.obd_title = self._make_text("OBD-II", style="title")
@@ -89,6 +100,7 @@ class SettingsScreen(Screen):
         self.obd_card.add_widget(obd_body)
 
         system_body.add_widget(self.appearance_card)
+        system_body.add_widget(self.maintenance_card)
         system_body.add_widget(Widget())
         system_body.add_widget(self.obd_card)
         self.system_card.add_widget(system_body)
@@ -168,6 +180,7 @@ class SettingsScreen(Screen):
         for label in [
             self.devices_title,
             self.appearance_title,
+            self.maintenance_title,
             self.obd_title,
             self.obd_status,
         ]:
@@ -175,6 +188,7 @@ class SettingsScreen(Screen):
 
         for label in [
             self.appearance_copy,
+            self.maintenance_copy,
             self.obd_copy,
         ]:
             label.text_color = palette["muted"]
@@ -184,6 +198,7 @@ class SettingsScreen(Screen):
         self.port_input.cursor_color = palette["accent_strong"]
         self.theme_button.set_text(f"Light Mode: {'On' if theme_service.mode == 'light' else 'Off'}")
         self.theme_button.apply_theme()
+        self.exit_button.apply_theme()
         self.refresh_button.apply_theme()
         self.discoverable_button.apply_theme()
         self.obd_button.apply_theme()
@@ -208,6 +223,11 @@ class SettingsScreen(Screen):
         else:
             theme_service.set_mode(next_mode)
         self._apply_theme()
+
+    def exit_app(self, *_):
+        app = MDApp.get_running_app()
+        if app:
+            Clock.schedule_once(lambda dt: app.stop(), 0)
 
     def toggle_obd(self, *_):
         if obd_service.connected:

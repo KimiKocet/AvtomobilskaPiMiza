@@ -100,7 +100,7 @@ class MainScreen(FloatLayout):
 
         self.menu_layout.add_widget(BoxLayout())
         self.layout_label = MDLabel(
-            text="1024 x 600 layout",
+            text="BMW 116i",
             size_hint_y=None,
             height=dp(28),
             halign="center",
