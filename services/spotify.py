@@ -154,6 +154,8 @@ class SpotifyService(EventDispatcher):
         )
         playlists = []
         for item in payload.get("items", []):
+            images = item.get("images", [])
+            image_url = images[0]["url"] if images else ""
             playlists.append(
                 {
                     "id": item.get("id"),
@@ -163,6 +165,7 @@ class SpotifyService(EventDispatcher):
                     "uri": item.get("uri"),
                     "external_url": ((item.get("external_urls") or {}).get("spotify") or ""),
                     "tracks_total": self._playlist_total(item),
+                    "image_url": image_url,
                 }
             )
         self._dispatch_state(connected=True)

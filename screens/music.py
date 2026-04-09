@@ -7,6 +7,7 @@ from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
+from kivy.uix.image import AsyncImage
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.screenmanager import Screen
 from kivymd.uix.card import MDCard
@@ -64,9 +65,9 @@ class MusicScreen(Screen):
         self.selected_card = _SelectedPlaylistCard()
         self.selected_card.play_button.bind(on_release=lambda *_: self.play_playlist())
 
-        self.playlist_list = GridLayout(cols=1, spacing=dp(8), size_hint_y=None)
-        self.playlist_list.bind(minimum_height=self.playlist_list.setter("height"))
-        self.playlist_scroll = ScrollView(bar_width=dp(5), do_scroll_x=False)
+        self.playlist_list = GridLayout(cols=0, spacing=dp(8), size_hint_x=None)
+        self.playlist_list.bind(minimum_width=self.playlist_list.setter("width"))
+        self.playlist_scroll = ScrollView(bar_height=dp(5), do_scroll_y=False)
         self.playlist_scroll.add_widget(self.playlist_list)
 
         self.connect_button = _MusicButton("Connect")
@@ -88,12 +89,37 @@ class MusicScreen(Screen):
 
         self.left.add_widget(self.status_label)
         self.left.add_widget(self.selected_card)
-        self.left.add_widget(self.playlists_label)
-        self.left.add_widget(self.playlist_scroll)
         self.left.add_widget(button_row)
 
-        right = AnchorLayout(size_hint=(0.58, 1))
-        right.add_widget(MediaPanel(compact=True, size_hint=(0.94, 0.78)))
+        right = BoxLayout(
+            orientation="vertical",
+            size_hint=(0.58, 1),
+            spacing=dp(12),
+        )
+        
+        playlist_container = BoxLayout(
+            orientation="vertical",
+            size_hint=(1, 0.22),
+            spacing=dp(8),
+        )
+        playlist_label = MDLabel(
+            text="Playlists",
+            theme_text_color="Custom",
+            adaptive_height=True,
+            bold=True,
+            size_hint_y=None,
+            height=dp(24),
+        )
+        self.playlist_label_ref = playlist_label
+        self.playlist_scroll.size_hint = (1, 1)
+        playlist_container.add_widget(playlist_label)
+        playlist_container.add_widget(self.playlist_scroll)
+        
+        media_anchor = AnchorLayout(size_hint=(1, 0.78))
+        media_anchor.add_widget(MediaPanel(compact=True, size_hint=(0.94, 0.94)))
+        
+        right.add_widget(playlist_container)
+        right.add_widget(media_anchor)
 
         root.add_widget(self.left)
         root.add_widget(right)
@@ -117,7 +143,7 @@ class MusicScreen(Screen):
         palette = theme_service.palette
         self.left.md_bg_color = palette["card"]
         self.status_label.text_color = palette["accent"]
-        self.playlists_label.text_color = palette["text"]
+        self.playlist_label_ref.text_color = palette["text"]
         self.selected_card.apply_theme()
         self.connect_button.apply_theme()
         self.refresh_button.apply_theme()
@@ -233,9 +259,9 @@ class MusicScreen(Screen):
             return
 
         for playlist in playlists:
-            tile = _PlaylistTile(
-                title=playlist["name"],
-                subtitle=f'{playlist["owner"]}  |  {playlist["tracks_total"]} tracks',
+            tile = _PlaylistIconTile(
+                image_url=playlist.get("image_url", ""),
+                playlist_id=playlist["id"],
             )
             tile.bind(on_release=lambda _tile, data=playlist: self.select_playlist(data))
             self.playlist_tiles[playlist["id"]] = tile
@@ -395,6 +421,37 @@ class _SelectedPlaylistCard(MDCard):
         for child in self.tracks_box.children:
             if hasattr(child, "apply_theme"):
                 child.apply_theme()
+
+
+class _PlaylistIconTile(MDCard, ButtonBehavior):
+    def __init__(self, image_url, playlist_id, **kwargs):
+        super().__init__(**kwargs)
+        self.active = False
+        self.playlist_id = playlist_id
+        self.orientation = "vertical"
+        self.padding = 0
+        self.spacing = 0
+        self.radius = [dp(16)]
+        self.elevation = 0
+        self.size_hint = (None, None)
+        self.size = (dp(80), dp(80))
+
+        self.image = AsyncImage(
+            source=image_url,
+            size_hint=(1, 1),
+            keep_ratio=True,
+        )
+        self.add_widget(self.image)
+        theme_service.bind(mode=self.apply_theme)
+        self.apply_theme()
+
+    def set_active(self, active):
+        self.active = bool(active)
+        self.apply_theme()
+
+    def apply_theme(self, *_):
+        palette = theme_service.palette
+        self.md_bg_color = palette["nav_active"] if self.active else palette["card_alt"]
 
 
 class _PlaylistTile(MDCard, ButtonBehavior):
