@@ -1,5 +1,9 @@
 import threading
 import time
+import urllib.parse
+import urllib.request
+import json
+import math
 
 from kivy.clock import Clock
 from kivy.event import EventDispatcher
@@ -28,12 +32,18 @@ class GPSService(EventDispatcher):
     connected = BooleanProperty(False)
     status = StringProperty("GPS idle")
     port_name = StringProperty("/dev/ttyACM0")
+    road_name = StringProperty("")
+    town_name = StringProperty("")
+    location_label = StringProperty("Waiting for GPS...")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.running = False
         self.ser = None
         self.thread = None
+        self._lookup_in_flight = False
+        self._last_lookup_time = 0.0
+        self._last_lookup_coords = None
 
     def start(self, port="/dev/ttyACM0", baudrate=9600):
         if self.running:
@@ -49,7 +59,7 @@ class GPSService(EventDispatcher):
             self.ser = serial.Serial(port, baudrate, timeout=1)
             self.running = True
             self.connected = True
-            self.status = f"Searching for satellites on {port}..."
+            self.status = "Searching for GPS..."
             self.thread = threading.Thread(target=self._read_loop, daemon=True)
             self.thread.start()
             return True
@@ -128,8 +138,9 @@ class GPSService(EventDispatcher):
         self.satellites = satellites
         self.has_fix = True
         self.connected = True
-        self.status = f"GPS fixed ({satellites} sats)"
+        self.status = "GPS fixed"
         route_service.update_position(lat, lon)
+        self._maybe_reverse_lookup(lat, lon)
 
     def _apply_motion(self, lat, lon, speed, heading):
         self.lat = lat
@@ -138,8 +149,9 @@ class GPSService(EventDispatcher):
         self.heading = heading
         self.has_fix = True
         self.connected = True
-        self.status = f"GPS fixed ({self.satellites} sats)"
+        self.status = "GPS fixed"
         route_service.update_position(lat, lon)
+        self._maybe_reverse_lookup(lat, lon)
 
     def _apply_speed_heading(self, speed, heading):
         self.speed_kmh = speed
@@ -149,13 +161,96 @@ class GPSService(EventDispatcher):
         self.has_fix = False
         self.satellites = satellites
         self.speed_kmh = 0
-        self.status = f"Searching for satellites ({satellites} visible)"
+        self.status = "Searching for GPS..."
+        if not self.road_name and not self.town_name:
+            self.location_label = "Waiting for GPS..."
 
     def _apply_error(self, message):
         self.has_fix = False
         self.connected = False
         self.speed_kmh = 0
         self.status = f"GPS read error: {message}"
+
+    def _maybe_reverse_lookup(self, lat, lon):
+        now = time.monotonic()
+        if self._lookup_in_flight:
+            return
+        if self._last_lookup_coords and self._distance_m(lat, lon, *self._last_lookup_coords) < 80:
+            return
+        if now - self._last_lookup_time < 12:
+            return
+
+        self._lookup_in_flight = True
+        self._last_lookup_time = now
+        self._last_lookup_coords = (lat, lon)
+        threading.Thread(target=self._reverse_lookup_worker, args=(lat, lon), daemon=True).start()
+
+    def _reverse_lookup_worker(self, lat, lon):
+        try:
+            params = urllib.parse.urlencode(
+                {
+                    "format": "jsonv2",
+                    "lat": lat,
+                    "lon": lon,
+                    "addressdetails": 1,
+                    "zoom": 17,
+                    "layer": "address",
+                    "accept-language": "sl,en",
+                }
+            )
+            request = urllib.request.Request(
+                f"https://nominatim.openstreetmap.org/reverse?{params}",
+                headers={"User-Agent": "DriveMediaTelemetry/1.0"},
+            )
+            with urllib.request.urlopen(request, timeout=4) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+
+            address = payload.get("address", {})
+            road = (
+                address.get("road")
+                or address.get("pedestrian")
+                or address.get("cycleway")
+                or address.get("footway")
+                or address.get("path")
+                or ""
+            )
+            town = (
+                address.get("city")
+                or address.get("town")
+                or address.get("village")
+                or address.get("municipality")
+                or address.get("suburb")
+                or address.get("hamlet")
+                or ""
+            )
+            Clock.schedule_once(lambda dt, road=road, town=town: self._apply_location(road, town))
+        except Exception:
+            pass
+        finally:
+            self._lookup_in_flight = False
+
+    def _apply_location(self, road, town):
+        self.road_name = road
+        self.town_name = town
+        if road and town:
+            self.location_label = f"{road}, {town}"
+        elif road:
+            self.location_label = road
+        elif town:
+            self.location_label = town
+        elif not self.has_fix:
+            self.location_label = "Waiting for GPS..."
+
+    @staticmethod
+    def _distance_m(lat1, lon1, lat2, lon2):
+        earth_radius = 6371000
+        p1 = math.radians(lat1)
+        p2 = math.radians(lat2)
+        dp = math.radians(lat2 - lat1)
+        dl = math.radians(lon2 - lon1)
+
+        a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+        return 2 * earth_radius * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 gps_service = GPSService()

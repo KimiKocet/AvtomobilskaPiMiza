@@ -34,26 +34,35 @@ class MapScreen(Screen):
             elevation=0,
             md_bg_color=(0.08, 0.11, 0.16, 0.98),
             size_hint_y=None,
-            height=dp(112),
+            height=dp(122),
         )
 
         title_row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(36), spacing=dp(10))
+        self.place_label = MDLabel(
+            text="Waiting for GPS...",
+            theme_text_color="Custom",
+            text_color=(0.98, 0.99, 1, 1),
+            bold=True,
+            font_style="H5",
+        )
+        title_row.add_widget(self.place_label)
         title_row.add_widget(
             MDLabel(
-                text="Navigation",
+                text="Zoom",
+                size_hint=(None, 1),
+                width=dp(52),
+                halign="right",
                 theme_text_color="Custom",
                 text_color=(0.98, 0.99, 1, 1),
-                bold=True,
-                font_style="H5",
             )
         )
         title_row.add_widget(self._make_zoom_button("+", self.zoom_in))
         title_row.add_widget(self._make_zoom_button("-", self.zoom_out))
 
         self.status_label = MDLabel(
-            text="Waiting for GPS...",
+            text="Zoom 14",
             theme_text_color="Custom",
-            text_color=(0.55, 0.8, 0.99, 1),
+            text_color=(0.98, 0.99, 1, 1),
         )
 
         header.add_widget(title_row)
@@ -102,7 +111,9 @@ class MapScreen(Screen):
             map_source="osm",
             cache_dir=cache_folder,
         )
-        self.map._scatter.do_rotation = True
+        self.map.map_source.min_zoom = self.min_zoom
+        self.map.map_source.max_zoom = self.max_zoom
+        self.map._scatter.do_rotation = False
 
         self.gps_marker = MapMarker(
             lat=gps_service.lat,
@@ -118,7 +129,8 @@ class MapScreen(Screen):
         if not self.map or not self.gps_marker:
             return
 
-        self.status_label.text = f"{gps_service.status}   Zoom {int(self.map.zoom)}"
+        self.place_label.text = gps_service.location_label or "Waiting for GPS..."
+        self.status_label.text = f"Zoom {int(self.map.zoom)}   {gps_service.status}"
 
         if gps_service.has_fix:
             self.gps_marker.lat = gps_service.lat
@@ -149,10 +161,12 @@ class MapScreen(Screen):
         button = Button(
             text=text,
             size_hint=(None, None),
-            size=(dp(46), dp(34)),
+            size=(dp(58), dp(44)),
             background_normal="",
-            background_color=(0.17, 0.4, 0.64, 1),
+            background_color=(1, 1, 1, 0.12),
             color=(1, 1, 1, 1),
+            font_size=dp(28),
+            bold=True,
         )
         button.bind(on_release=callback)
         return button
