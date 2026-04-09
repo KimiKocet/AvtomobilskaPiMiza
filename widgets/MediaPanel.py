@@ -1,13 +1,15 @@
 from kivy.clock import Clock
 from kivy.metrics import dp
 from kivy.properties import StringProperty
+from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
-from kivymd.uix.button import MDFloatingActionButton, MDIconButton
 from kivymd.uix.card import MDCard
-from kivymd.uix.label import MDLabel
+from kivymd.uix.label import MDIcon, MDLabel
 
 from pydbus import SessionBus, SystemBus
+
+from services.theme import theme_service
 
 
 class MediaPanel(MDCard):
@@ -27,7 +29,6 @@ class MediaPanel(MDCard):
         self.size = (dp(360), dp(250))
         self.radius = [dp(28)]
         self.elevation = 0
-        self.md_bg_color = (0.09, 0.12, 0.17, 0.96)
 
         self.bus = None
         self.session_bus = None
@@ -39,30 +40,26 @@ class MediaPanel(MDCard):
             text=self.source,
             adaptive_height=True,
             theme_text_color="Custom",
-            text_color=(0.56, 0.78, 0.99, 1),
             bold=True,
         )
-        status_chip = _Chip(text="Now Playing")
+        self.status_chip = _Chip(text="Now Playing")
         top_row.add_widget(self.source_label)
-        top_row.add_widget(status_chip)
+        top_row.add_widget(self.status_chip)
 
         track_box = BoxLayout(orientation="vertical", spacing=dp(6))
         self.title_label = MDLabel(
             text=self.title,
             theme_text_color="Custom",
-            text_color=(0.98, 0.99, 1, 1),
             bold=True,
             font_style="H5",
         )
         self.artist_label = MDLabel(
             text=self.artist,
             theme_text_color="Custom",
-            text_color=(0.63, 0.71, 0.81, 1),
         )
         self.track_hint = MDLabel(
             text="Large controls, quick glance metadata, Bluetooth and Spotify support.",
             theme_text_color="Custom",
-            text_color=(0.47, 0.54, 0.62, 1),
         )
         track_box.add_widget(self.title_label)
         track_box.add_widget(self.artist_label)
@@ -70,14 +67,17 @@ class MediaPanel(MDCard):
 
         controls_box = BoxLayout(
             orientation="horizontal",
-            spacing=dp(22),
+            spacing=dp(12),
             size_hint_y=None,
-            height=dp(104),
+            height=dp(92),
         )
 
-        self.btn_prev = self._build_button("skip-previous", "52sp")
-        self.btn_play = self._build_button("play", "42sp", accent=True)
-        self.btn_next = self._build_button("skip-next", "52sp")
+        self.btn_prev = _ControlSurface("skip-previous")
+        self.btn_prev.size_hint_x = 1
+        self.btn_play = _ControlSurface("play", accent=True)
+        self.btn_play.size_hint_x = 1.2
+        self.btn_next = _ControlSurface("skip-next")
+        self.btn_next.size_hint_x = 1
 
         self.btn_prev.bind(on_release=self.prev_track)
         self.btn_play.bind(on_release=self.toggle_play)
@@ -113,22 +113,22 @@ class MediaPanel(MDCard):
         self.bind(source=lambda _, value: self.source_stat.set_value(value))
         self.bind(state=lambda _, value: self.state_stat.set_value(value))
 
-    def _build_button(self, icon_name, font_size, accent=False):
-        if accent:
-            button = MDFloatingActionButton(icon=icon_name)
-            button.md_bg_color = (0.22, 0.62, 0.95, 1)
-            button.theme_text_color = "Custom"
-            button.text_color = (1, 1, 1, 1)
-            button.elevation_normal = 0
-            button.elevation_raised = 0
-            button.user_font_size = font_size
-            return button
+        theme_service.bind(mode=self._apply_theme)
+        self._apply_theme()
 
-        button = MDIconButton(icon=icon_name)
-        button.theme_text_color = "Custom"
-        button.text_color = (0.78, 0.84, 0.92, 1)
-        button.user_font_size = font_size
-        return button
+    def _apply_theme(self, *_):
+        palette = theme_service.palette
+        self.md_bg_color = palette["card_alt"]
+        self.source_label.text_color = palette["accent"]
+        self.title_label.text_color = palette["text"]
+        self.artist_label.text_color = palette["muted"]
+        self.track_hint.text_color = palette["subtle"]
+        self.status_chip.apply_theme()
+        self.source_stat.apply_theme()
+        self.state_stat.apply_theme()
+        self.btn_prev.apply_theme()
+        self.btn_play.apply_theme()
+        self.btn_next.apply_theme()
 
     def _sync_source(self, *_):
         self.source_label.text = self.source
@@ -177,7 +177,7 @@ class MediaPanel(MDCard):
             self.artist = metadata.get("xesam:artist", ["Unknown"])[0]
             self.source = "Spotify"
             self.state = self.spotify.PlaybackStatus
-            self.btn_play.icon = "pause" if self.spotify.PlaybackStatus == "Playing" else "play"
+            self.btn_play.set_icon("pause" if self.spotify.PlaybackStatus == "Playing" else "play")
             return
         except Exception:
             self.spotify = None
@@ -195,7 +195,7 @@ class MediaPanel(MDCard):
                 self.artist = track.get("Artist", "Unknown")
                 self.source = "Bluetooth"
                 self.state = self.player.Status.title()
-                self.btn_play.icon = "pause" if self.player.Status == "playing" else "play"
+                self.btn_play.set_icon("pause" if self.player.Status == "playing" else "play")
                 return
         except Exception:
             self.player = None
@@ -204,7 +204,36 @@ class MediaPanel(MDCard):
         self.artist = "Connect Spotify or Bluetooth"
         self.source = "Idle"
         self.state = "Waiting"
-        self.btn_play.icon = "play"
+        self.btn_play.set_icon("play")
+
+
+class _ControlSurface(ButtonBehavior, MDCard):
+    def __init__(self, icon_name, accent=False, **kwargs):
+        super().__init__(**kwargs)
+        self.icon_name = icon_name
+        self.accent = accent
+        self.radius = [dp(24)]
+        self.elevation = 0
+        self.padding = dp(6)
+        self.icon_widget = MDIcon(
+            icon=icon_name,
+            halign="center",
+            valign="middle",
+            theme_text_color="Custom",
+            font_size="42sp" if accent else "36sp",
+        )
+        self.add_widget(self.icon_widget)
+        theme_service.bind(mode=self.apply_theme)
+        self.apply_theme()
+
+    def set_icon(self, icon_name):
+        self.icon_name = icon_name
+        self.icon_widget.icon = icon_name
+
+    def apply_theme(self, *_):
+        palette = theme_service.palette
+        self.md_bg_color = palette["accent_strong"] if self.accent else palette["card_soft"]
+        self.icon_widget.text_color = palette["button_text"] if self.accent else palette["text"]
 
 
 class _Chip(MDCard):
@@ -214,16 +243,20 @@ class _Chip(MDCard):
         self.size = (dp(118), dp(30))
         self.radius = [dp(15)]
         self.elevation = 0
-        self.md_bg_color = (0.14, 0.18, 0.24, 1)
         self.padding = (dp(12), 0)
-        self.add_widget(
-            MDLabel(
-                text=text,
-                halign="center",
-                theme_text_color="Custom",
-                text_color=(0.78, 0.84, 0.92, 1),
-            )
+        self.label = MDLabel(
+            text=text,
+            halign="center",
+            theme_text_color="Custom",
         )
+        self.add_widget(self.label)
+        theme_service.bind(mode=self.apply_theme)
+        self.apply_theme()
+
+    def apply_theme(self, *_):
+        palette = theme_service.palette
+        self.md_bg_color = palette["chip"]
+        self.label.text_color = palette["muted"]
 
 
 class _MiniStat(MDCard):
@@ -234,23 +267,27 @@ class _MiniStat(MDCard):
         self.spacing = dp(2)
         self.radius = [dp(18)]
         self.elevation = 0
-        self.md_bg_color = (0.12, 0.15, 0.2, 1)
-        self.add_widget(
-            MDLabel(
-                text=title,
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=(0.45, 0.52, 0.6, 1),
-            )
+        self.title_label = MDLabel(
+            text=title,
+            adaptive_height=True,
+            theme_text_color="Custom",
         )
         self.value_label = MDLabel(
             text=value,
             adaptive_height=True,
             theme_text_color="Custom",
-            text_color=(0.94, 0.97, 1, 1),
             bold=True,
         )
+        self.add_widget(self.title_label)
         self.add_widget(self.value_label)
+        theme_service.bind(mode=self.apply_theme)
+        self.apply_theme()
 
     def set_value(self, value):
         self.value_label.text = value
+
+    def apply_theme(self, *_):
+        palette = theme_service.palette
+        self.md_bg_color = palette["card_soft"]
+        self.title_label.text_color = palette["subtle"]
+        self.value_label.text_color = palette["text"]

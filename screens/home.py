@@ -10,6 +10,7 @@ from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
 
 from services.obd import obd_service
+from services.theme import theme_service
 from widgets.MediaPanel import MediaPanel
 from widgets.SpeedRpmGauge import SpeedRpmGauge
 
@@ -20,7 +21,7 @@ class HomeScreen(Screen):
 
         root = FloatLayout()
         with root.canvas.before:
-            Color(0.02, 0.03, 0.07, 1)
+            self.background_color = Color(0.02, 0.03, 0.07, 1)
             self.background = RoundedRectangle(pos=root.pos, size=root.size)
         root.bind(pos=self._sync_background, size=self._sync_background)
 
@@ -54,12 +55,20 @@ class HomeScreen(Screen):
         self.demo_gear = 1
         self.demo_state = "start_fall"
         self.demo_state_time = 0.0
+        theme_service.bind(mode=self._apply_theme)
+        self._apply_theme()
         Clock.schedule_interval(self.refresh_dashboard, 1.0 / 20.0)
         Clock.schedule_interval(self.refresh_clock, 1)
 
     def _sync_background(self, instance, *_):
         self.background.pos = instance.pos
         self.background.size = instance.size
+
+    def _apply_theme(self, *_):
+        palette = theme_service.palette
+        self.background_color.rgba = palette["app_bg"]
+        self.date_card.apply_theme()
+        self.clock_card.apply_theme()
 
     def refresh_dashboard(self, dt):
         if obd_service.connected:
@@ -182,21 +191,17 @@ class StatCard(MDCard):
         self.spacing = dp(8)
         self.radius = [dp(24)]
         self.elevation = 0
-        self.md_bg_color = (0.08, 0.11, 0.16, 0.98)
 
-        self.add_widget(
-            MDLabel(
-                text=title,
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=(0.49, 0.58, 0.66, 1),
-            )
+        self.title_label = MDLabel(
+            text=title,
+            adaptive_height=True,
+            theme_text_color="Custom",
         )
+        self.add_widget(self.title_label)
         self.value_label = MDLabel(
             text=value,
             adaptive_height=True,
             theme_text_color="Custom",
-            text_color=(0.98, 0.99, 1, 1),
             bold=True,
             font_style="H5",
         )
@@ -204,11 +209,19 @@ class StatCard(MDCard):
             text=hint,
             adaptive_height=True,
             theme_text_color="Custom",
-            text_color=(0.34, 0.72, 0.98, 1),
         )
         self.add_widget(self.value_label)
         self.add_widget(self.hint_label)
+        theme_service.bind(mode=self.apply_theme)
+        self.apply_theme()
 
     def set_value(self, value, hint):
         self.value_label.text = value
         self.hint_label.text = hint
+
+    def apply_theme(self, *_):
+        palette = theme_service.palette
+        self.md_bg_color = palette["card"]
+        self.title_label.text_color = palette["subtle"]
+        self.value_label.text_color = palette["text"]
+        self.hint_label.text_color = palette["accent"]

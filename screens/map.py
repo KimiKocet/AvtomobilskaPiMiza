@@ -10,6 +10,7 @@ from kivymd.uix.label import MDLabel
 from kivy_garden.mapview import MapMarker, MapSource, MapView
 
 from services.gps import gps_service
+from services.theme import theme_service
 
 
 class MapScreen(Screen):
@@ -32,10 +33,10 @@ class MapScreen(Screen):
             spacing=dp(10),
             radius=[dp(26)],
             elevation=0,
-            md_bg_color=(0.08, 0.11, 0.16, 0.98),
             size_hint_y=None,
             height=dp(122),
         )
+        self.header = header
 
         title_row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(36), spacing=dp(10))
         self.place_label = MDLabel(
@@ -46,23 +47,20 @@ class MapScreen(Screen):
             font_style="H5",
         )
         title_row.add_widget(self.place_label)
-        title_row.add_widget(
-            MDLabel(
-                text="Zoom",
-                size_hint=(None, 1),
-                width=dp(52),
-                halign="right",
-                theme_text_color="Custom",
-                text_color=(0.98, 0.99, 1, 1),
-            )
+        self.zoom_caption = MDLabel(
+            text="Zoom",
+            size_hint=(None, 1),
+            width=dp(52),
+            halign="right",
+            theme_text_color="Custom",
         )
+        title_row.add_widget(self.zoom_caption)
         title_row.add_widget(self._make_zoom_button("+", self.zoom_in))
         title_row.add_widget(self._make_zoom_button("-", self.zoom_out))
 
         self.status_label = MDLabel(
             text="Zoom 14",
             theme_text_color="Custom",
-            text_color=(0.98, 0.99, 1, 1),
         )
 
         header.add_widget(title_row)
@@ -73,12 +71,13 @@ class MapScreen(Screen):
             padding=dp(10),
             radius=[dp(30)],
             elevation=0,
-            md_bg_color=(0.05, 0.08, 0.12, 1),
         )
 
         root.add_widget(header)
         root.add_widget(self.map_card)
         self.add_widget(root)
+        theme_service.bind(mode=self._apply_theme)
+        self._apply_theme()
 
     def on_enter(self):
         if not self.map:
@@ -163,10 +162,22 @@ class MapScreen(Screen):
             size_hint=(None, None),
             size=(dp(58), dp(44)),
             background_normal="",
-            background_color=(1, 1, 1, 0.12),
-            color=(1, 1, 1, 1),
             font_size=dp(28),
             bold=True,
         )
         button.bind(on_release=callback)
         return button
+
+    def _apply_theme(self, *_):
+        palette = theme_service.palette
+        self.header.md_bg_color = palette["card"]
+        self.map_card.md_bg_color = palette["content_bg"]
+        self.place_label.text_color = palette["text"]
+        self.zoom_caption.text_color = palette["text"]
+        self.status_label.text_color = palette["text"]
+        for child in self.header.children:
+            if isinstance(child, BoxLayout):
+                for button in child.children:
+                    if isinstance(button, Button):
+                        button.background_color = palette["button_bg_soft"]
+                        button.color = palette["text"]

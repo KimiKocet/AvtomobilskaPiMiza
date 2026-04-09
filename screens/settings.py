@@ -1,22 +1,26 @@
 from kivy.clock import Clock
 from kivy.metrics import dp
+from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
 from kivy.uix.gridlayout import GridLayout
-from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.screenmanager import Screen
 from kivy.uix.textinput import TextInput
+from kivymd.app import MDApp
 from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
 
 from services.bluetooth import bluetooth_service
 from services.obd import obd_service
+from services.theme import theme_service
 
 
 class SettingsScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        self.cards = []
+        self.subcards = []
 
         main_layout = BoxLayout(
             orientation="horizontal",
@@ -24,12 +28,12 @@ class SettingsScreen(Screen):
             spacing=dp(18),
         )
 
-        bt_card = self._build_card("Bluetooth", "Manage paired devices and discovery mode.")
+        self.bt_card = self._build_card("Bluetooth", "Minimal pairing controls and a cleaner device list.")
         bt_body = BoxLayout(orientation="vertical", spacing=dp(14))
 
         button_row = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(52))
-        self.discoverable_button = self._make_button("Make Discoverable")
-        self.refresh_button = self._make_button("Refresh")
+        self.discoverable_button = ActionPill("Make Discoverable")
+        self.refresh_button = ActionPill("Refresh", accent=False)
         self.discoverable_button.bind(on_release=self.toggle_discoverable)
         self.refresh_button.bind(on_release=self.manual_refresh)
         button_row.add_widget(self.discoverable_button)
@@ -37,48 +41,64 @@ class SettingsScreen(Screen):
 
         self.device_list = GridLayout(cols=1, spacing=dp(10), size_hint_y=None)
         self.device_list.bind(minimum_height=self.device_list.setter("height"))
-        scroll = ScrollView()
+        scroll = ScrollView(bar_width=dp(6))
         scroll.add_widget(self.device_list)
 
         bt_body.add_widget(button_row)
         bt_body.add_widget(scroll)
-        bt_card.add_widget(bt_body)
+        self.bt_card.add_widget(bt_body)
 
-        obd_card = self._build_card("OBD-II", "Choose the serial device used for speed and RPM telemetry.")
-        obd_body = BoxLayout(orientation="vertical", spacing=dp(14))
-        self.obd_status = MDLabel(
-            text="OBD: Disconnected",
-            theme_text_color="Custom",
-            text_color=(0.86, 0.91, 0.96, 1),
-        )
+        self.system_card = self._build_card("System", "Appearance and OBD connection settings.")
+        system_body = BoxLayout(orientation="vertical", spacing=dp(14))
+
+        self.appearance_card = self._build_subcard()
+        appearance_body = BoxLayout(orientation="vertical", spacing=dp(10))
+        self.appearance_title = self._make_text("Appearance", style="title")
+        self.appearance_copy = self._make_text("Switch the dashboard between dark and light surfaces.", style="muted")
+        self.theme_button = ActionPill("Light Mode: Off", accent=False)
+        self.theme_button.bind(on_release=self.toggle_theme)
+        appearance_body.add_widget(self.appearance_title)
+        appearance_body.add_widget(self.appearance_copy)
+        appearance_body.add_widget(self.theme_button)
+        self.appearance_card.add_widget(appearance_body)
+
+        self.obd_card = self._build_subcard()
+        obd_body = BoxLayout(orientation="vertical", spacing=dp(12))
+        self.obd_title = self._make_text("OBD-II", style="title")
+        self.obd_copy = self._make_text("Choose the serial device used for RPM and speed telemetry.", style="muted")
+        self.obd_status = self._make_text("OBD: Disconnected", style="body")
         self.port_input = TextInput(
             text="/dev/ttyUSB0",
             multiline=False,
             size_hint_y=None,
             height=dp(52),
-            background_color=(0.1, 0.14, 0.2, 1),
-            foreground_color=(0.96, 0.98, 1, 1),
-            cursor_color=(0.38, 0.78, 1, 1),
             padding=(dp(14), dp(14)),
         )
-        self.obd_button = self._make_button("Connect OBD")
+        self.obd_button = ActionPill("Connect OBD")
         self.obd_button.bind(on_release=self.toggle_obd)
-
+        obd_body.add_widget(self.obd_title)
+        obd_body.add_widget(self.obd_copy)
         obd_body.add_widget(self.obd_status)
         obd_body.add_widget(self.port_input)
         obd_body.add_widget(self.obd_button)
-        obd_body.add_widget(Label())
-        obd_card.add_widget(obd_body)
+        self.obd_card.add_widget(obd_body)
 
-        main_layout.add_widget(bt_card)
-        main_layout.add_widget(obd_card)
+        system_body.add_widget(self.appearance_card)
+        system_body.add_widget(self.obd_card)
+        system_body.add_widget(BoxLayout())
+        self.system_card.add_widget(system_body)
+
+        main_layout.add_widget(self.bt_card)
+        main_layout.add_widget(self.system_card)
         self.add_widget(main_layout)
 
         bluetooth_service.start_scan()
         if bluetooth_service.is_discoverable():
-            self.discoverable_button.text = "Discoverable: ON"
+            self.discoverable_button.set_text("Discoverable: On")
 
         self._sync_obd_state()
+        theme_service.bind(mode=self._apply_theme)
+        self._apply_theme()
         Clock.schedule_interval(self.refresh_devices, 3)
 
     def _build_card(self, title, subtitle):
@@ -88,54 +108,101 @@ class SettingsScreen(Screen):
             spacing=dp(14),
             radius=[dp(30)],
             elevation=0,
-            md_bg_color=(0.08, 0.11, 0.16, 0.98),
             size_hint=(0.5, 1),
         )
-        card.add_widget(
-            MDLabel(
-                text=title,
-                theme_text_color="Custom",
-                text_color=(0.98, 0.99, 1, 1),
-                bold=True,
-                font_style="H5",
-            )
-        )
-        card.add_widget(
-            MDLabel(
-                text=subtitle,
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=(0.61, 0.7, 0.79, 1),
-            )
-        )
+        card.title_label = self._make_text(title, style="header")
+        card.subtitle_label = self._make_text(subtitle, style="muted")
+        card.add_widget(card.title_label)
+        card.add_widget(card.subtitle_label)
+        self.cards.append(card)
         return card
 
-    def _make_button(self, text):
-        button = Button(
-            text=text,
-            background_normal="",
-            background_color=(0.17, 0.4, 0.64, 1),
-            color=(1, 1, 1, 1),
+    def _build_subcard(self):
+        card = MDCard(
+            orientation="vertical",
+            padding=dp(16),
+            spacing=dp(10),
+            radius=[dp(24)],
+            elevation=0,
             size_hint_y=None,
-            height=dp(52),
+            adaptive_height=True,
         )
-        return button
+        self.subcards.append(card)
+        return card
+
+    def _make_text(self, text, style="body"):
+        label = MDLabel(text=text, theme_text_color="Custom")
+        label.style_name = style
+        if style == "header":
+            label.bold = True
+            label.font_style = "H5"
+        elif style == "title":
+            label.bold = True
+            label.adaptive_height = True
+        else:
+            label.adaptive_height = True
+        return label
+
+    def _apply_theme(self, *_):
+        palette = theme_service.palette
+        for card in self.cards:
+            card.md_bg_color = palette["card"]
+            card.title_label.text_color = palette["text"]
+            card.subtitle_label.text_color = palette["muted"]
+
+        for card in self.subcards:
+            card.md_bg_color = palette["card_soft"]
+
+        for label in [
+            self.appearance_title,
+            self.obd_title,
+            self.obd_status,
+        ]:
+            label.text_color = palette["text"]
+
+        for label in [
+            self.appearance_copy,
+            self.obd_copy,
+        ]:
+            label.text_color = palette["muted"]
+
+        self.port_input.background_color = palette["input_bg"]
+        self.port_input.foreground_color = palette["input_text"]
+        self.port_input.cursor_color = palette["accent_strong"]
+        self.theme_button.set_text(f"Light Mode: {'On' if theme_service.mode == 'light' else 'Off'}")
+        self.theme_button.apply_theme()
+        self.refresh_button.apply_theme()
+        self.discoverable_button.apply_theme()
+        self.obd_button.apply_theme()
+
+        for child in self.device_list.children:
+            if hasattr(child, "apply_theme"):
+                child.apply_theme()
 
     def _sync_obd_state(self):
         if obd_service.connected:
             self.obd_status.text = "OBD: Connected"
-            self.obd_button.text = "Disconnect OBD"
+            self.obd_button.set_text("Disconnect OBD")
         else:
             self.obd_status.text = "OBD: Disconnected"
-            self.obd_button.text = "Connect OBD"
+            self.obd_button.set_text("Connect OBD")
 
-    def toggle_obd(self, instance):
+    def toggle_theme(self, *_):
+        next_mode = "light" if theme_service.mode == "dark" else "dark"
+        app = MDApp.get_running_app()
+        if hasattr(app, "set_theme_mode"):
+            app.set_theme_mode(next_mode)
+        else:
+            theme_service.set_mode(next_mode)
+        self._apply_theme()
+
+    def toggle_obd(self, *_):
         if obd_service.connected:
             obd_service.disconnect()
         else:
             if not obd_service.connect(self.port_input.text.strip()):
                 self.obd_status.text = "OBD: Failed to connect"
-                self.obd_button.text = "Connect OBD"
+                self.obd_button.set_text("Connect OBD")
                 return
         self._sync_obd_state()
 
@@ -144,35 +211,31 @@ class SettingsScreen(Screen):
         devices = bluetooth_service.get_devices()
 
         if not devices:
-            self.device_list.add_widget(
-                Label(
-                    text="No Bluetooth devices found",
-                    size_hint_y=None,
-                    height=dp(60),
-                    color=(0.8, 0.86, 0.92, 1),
-                )
-            )
+            empty = self._build_subcard()
+            empty.add_widget(self._make_text("No Bluetooth devices found right now.", style="muted"))
+            self.device_list.add_widget(empty)
+            self._apply_theme()
             return
 
         for dev in devices:
             status = "Connected" if dev["connected"] else "Paired" if dev["paired"] else "Available"
-            btn = self._make_button(f"{dev['name']}   [{status}]")
-            btn.bind(
-                on_release=lambda _, path=dev["path"], connected=dev["connected"]: self.toggle_device(path, connected)
-            )
-            self.device_list.add_widget(btn)
+            tile = DeviceTile(dev["name"], dev["address"], status)
+            tile.bind(on_release=lambda _, path=dev["path"], connected=dev["connected"]: self.toggle_device(path, connected))
+            self.device_list.add_widget(tile)
 
-    def manual_refresh(self, instance):
-        self.refresh_button.text = "Scanning..."
+        self._apply_theme()
+
+    def manual_refresh(self, *_):
+        self.refresh_button.set_text("Scanning...")
         bluetooth_service.stop_scan()
         bluetooth_service.start_scan()
         self.refresh_devices(0)
-        Clock.schedule_once(lambda dt: setattr(self.refresh_button, "text", "Refresh"), 2)
+        Clock.schedule_once(lambda dt: self.refresh_button.set_text("Refresh"), 2)
 
-    def toggle_discoverable(self, instance):
+    def toggle_discoverable(self, *_):
         current = bluetooth_service.is_discoverable()
         if bluetooth_service.set_discoverable(not current):
-            self.discoverable_button.text = "Discoverable: ON" if not current else "Make Discoverable"
+            self.discoverable_button.set_text("Discoverable: On" if not current else "Make Discoverable")
 
     def toggle_device(self, path, connected):
         if connected:
@@ -188,3 +251,72 @@ class SettingsScreen(Screen):
             print("Bluetooth pairing error:", exc)
         finally:
             Clock.schedule_once(lambda dt: self.refresh_devices(0), 1)
+
+
+class ActionPill(ButtonBehavior, MDCard):
+    def __init__(self, text, accent=True, **kwargs):
+        super().__init__(**kwargs)
+        self.accent = accent
+        self.size_hint_y = None
+        self.height = dp(52)
+        self.padding = (dp(18), 0)
+        self.radius = [dp(22)]
+        self.elevation = 0
+        self.label = MDLabel(
+            text=text,
+            halign="center",
+            theme_text_color="Custom",
+            bold=True,
+        )
+        self.add_widget(self.label)
+        theme_service.bind(mode=self.apply_theme)
+        self.apply_theme()
+
+    def set_text(self, text):
+        self.label.text = text
+
+    def apply_theme(self, *_):
+        palette = theme_service.palette
+        self.md_bg_color = palette["button_bg"] if self.accent else palette["chip"]
+        self.label.text_color = palette["button_text"] if self.accent else palette["text"]
+
+
+class DeviceTile(ButtonBehavior, MDCard):
+    def __init__(self, name, address, status, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = "horizontal"
+        self.padding = dp(16)
+        self.spacing = dp(10)
+        self.radius = [dp(22)]
+        self.elevation = 0
+        self.size_hint_y = None
+        self.height = dp(84)
+
+        text_box = BoxLayout(orientation="vertical", spacing=dp(2))
+        self.name_label = MDLabel(text=name, theme_text_color="Custom", bold=True)
+        self.address_label = MDLabel(text=address or "Unknown address", theme_text_color="Custom")
+        text_box.add_widget(self.name_label)
+        text_box.add_widget(self.address_label)
+
+        self.status_chip = MDCard(
+            size_hint=(None, None),
+            size=(dp(116), dp(32)),
+            radius=[dp(16)],
+            elevation=0,
+            padding=(dp(10), 0),
+        )
+        self.status_label = MDLabel(text=status, halign="center", theme_text_color="Custom", bold=True)
+        self.status_chip.add_widget(self.status_label)
+
+        self.add_widget(text_box)
+        self.add_widget(self.status_chip)
+        theme_service.bind(mode=self.apply_theme)
+        self.apply_theme()
+
+    def apply_theme(self, *_):
+        palette = theme_service.palette
+        self.md_bg_color = palette["card_soft"]
+        self.name_label.text_color = palette["text"]
+        self.address_label.text_color = palette["muted"]
+        self.status_chip.md_bg_color = palette["chip"]
+        self.status_label.text_color = palette["accent_strong"]

@@ -5,6 +5,7 @@ from kivy.uix.screenmanager import Screen
 from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
 
+from services.theme import theme_service
 from widgets.MediaPanel import MediaPanel
 
 
@@ -14,41 +15,44 @@ class MusicScreen(Screen):
 
         root = BoxLayout(orientation="horizontal", padding=dp(22), spacing=dp(18))
 
-        left = MDCard(
+        self.left = MDCard(
             orientation="vertical",
             padding=dp(24),
             spacing=dp(10),
             radius=[dp(30)],
             elevation=0,
-            md_bg_color=(0.08, 0.11, 0.16, 0.98),
             size_hint=(0.42, 1),
         )
-        left.add_widget(
-            MDLabel(
-                text="Media",
-                theme_text_color="Custom",
-                text_color=(0.98, 0.99, 1, 1),
-                bold=True,
-                font_style="H4",
-            )
+        self.title_label = MDLabel(
+            text="Media",
+            theme_text_color="Custom",
+            bold=True,
+            font_style="H4",
         )
-        left.add_widget(
-            MDLabel(
-                text="Touch-friendly playback controls for quick use while driving.",
-                theme_text_color="Custom",
-                text_color=(0.65, 0.72, 0.8, 1),
-            )
+        self.copy_label = MDLabel(
+            text="Touch-friendly playback controls for quick use while driving.",
+            theme_text_color="Custom",
         )
-        left.add_widget(_FeatureCard("Spotify", "Reads MPRIS metadata and transport state."))
-        left.add_widget(_FeatureCard("Bluetooth", "Falls back to BlueZ media players automatically."))
-        left.add_widget(_FeatureCard("Large targets", "Bigger controls make the screen easier to use in the car."))
+        self.left.add_widget(self.title_label)
+        self.left.add_widget(self.copy_label)
+        self.left.add_widget(_FeatureCard("Spotify", "Reads MPRIS metadata and transport state."))
+        self.left.add_widget(_FeatureCard("Bluetooth", "Falls back to BlueZ media players automatically."))
+        self.left.add_widget(_FeatureCard("Large targets", "Bigger controls make the screen easier to use in the car."))
 
         right = AnchorLayout(size_hint=(0.58, 1))
         right.add_widget(MediaPanel(compact=True, size_hint=(0.94, 0.78)))
 
-        root.add_widget(left)
+        root.add_widget(self.left)
         root.add_widget(right)
         self.add_widget(root)
+        theme_service.bind(mode=self._apply_theme)
+        self._apply_theme()
+
+    def _apply_theme(self, *_):
+        palette = theme_service.palette
+        self.left.md_bg_color = palette["card"]
+        self.title_label.text_color = palette["text"]
+        self.copy_label.text_color = palette["muted"]
 
 
 class _FeatureCard(MDCard):
@@ -59,22 +63,25 @@ class _FeatureCard(MDCard):
         self.spacing = dp(6)
         self.radius = [dp(24)]
         self.elevation = 0
-        self.md_bg_color = (0.11, 0.15, 0.21, 1)
         self.size_hint_y = None
         self.height = dp(116)
-        self.add_widget(
-            MDLabel(
-                text=title,
-                adaptive_height=True,
-                theme_text_color="Custom",
-                text_color=(0.38, 0.78, 1, 1),
-                bold=True,
-            )
+        self.title_label = MDLabel(
+            text=title,
+            adaptive_height=True,
+            theme_text_color="Custom",
+            bold=True,
         )
-        self.add_widget(
-            MDLabel(
-                text=body,
-                theme_text_color="Custom",
-                text_color=(0.84, 0.89, 0.95, 1),
-            )
+        self.body_label = MDLabel(
+            text=body,
+            theme_text_color="Custom",
         )
+        self.add_widget(self.title_label)
+        self.add_widget(self.body_label)
+        theme_service.bind(mode=self.apply_theme)
+        self.apply_theme()
+
+    def apply_theme(self, *_):
+        palette = theme_service.palette
+        self.md_bg_color = palette["card_soft"]
+        self.title_label.text_color = palette["accent"]
+        self.body_label.text_color = palette["text"]
