@@ -59,13 +59,9 @@ class MediaPanel(MDCard):
             text=self.artist,
             theme_text_color="Custom",
         )
-        self.track_hint = MDLabel(
-            text="Large controls, quick glance metadata, Bluetooth and Spotify support.",
-            theme_text_color="Custom",
-        )
+
         track_box.add_widget(self.title_label)
         track_box.add_widget(self.artist_label)
-        track_box.add_widget(self.track_hint)
 
         controls_box = BoxLayout(
             orientation="horizontal",

@@ -83,7 +83,7 @@ class HomeScreen(Screen):
         self.gauge.gear_label = gear
 
     def refresh_clock(self, dt):
-        self.clock_card.set_value(strftime("%H:%M"), "Local time")
+        self.clock_card.set_value(strftime("%H:%M"), "Ura")
         self.date_card.set_value(strftime("%d %B %Y"), strftime("%A"))
 
     @staticmethod
