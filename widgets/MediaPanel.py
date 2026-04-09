@@ -89,17 +89,10 @@ class MediaPanel(MDCard):
         controls_box.add_widget(self.btn_play)
         controls_box.add_widget(self.btn_next)
 
-        footer = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(26))
-        self.source_stat = _MiniStat("SRC", self.source)
-        self.state_stat = _MiniStat("STATE", self.state)
-        footer.add_widget(self.source_stat)
-        footer.add_widget(self.state_stat)
-
         self.add_widget(top_row)
         self.add_widget(track_box)
         self.add_widget(Widget())
         self.add_widget(controls_box)
-        self.add_widget(footer)
 
         try:
             self.bus = SystemBus()
@@ -112,8 +105,6 @@ class MediaPanel(MDCard):
         self.bind(title=lambda _, value: setattr(self.title_label, "text", value))
         self.bind(artist=lambda _, value: setattr(self.artist_label, "text", value))
         self.bind(source=self._sync_source)
-        self.bind(source=lambda _, value: self.source_stat.set_value(value))
-        self.bind(state=lambda _, value: self.state_stat.set_value(value))
 
         theme_service.bind(mode=self._apply_theme)
         self._apply_theme()
@@ -126,8 +117,6 @@ class MediaPanel(MDCard):
         self.artist_label.text_color = palette["muted"]
         self.track_hint.text_color = palette["subtle"]
         self.status_chip.apply_theme()
-        self.source_stat.apply_theme()
-        self.state_stat.apply_theme()
         self.btn_prev.apply_theme()
         self.btn_play.apply_theme()
         self.btn_next.apply_theme()
@@ -277,37 +266,3 @@ class _Chip(MDCard):
         palette = theme_service.palette
         self.md_bg_color = palette["chip"]
         self.label.text_color = palette["muted"]
-
-
-class _MiniStat(MDCard):
-    def __init__(self, title, value, **kwargs):
-        super().__init__(**kwargs)
-        self.orientation = "vertical"
-        self.padding = dp(10)
-        self.spacing = dp(2)
-        self.radius = [dp(18)]
-        self.elevation = 0
-        self.title_label = MDLabel(
-            text=title,
-            adaptive_height=True,
-            theme_text_color="Custom",
-        )
-        self.value_label = MDLabel(
-            text=value,
-            adaptive_height=True,
-            theme_text_color="Custom",
-            bold=True,
-        )
-        self.add_widget(self.title_label)
-        self.add_widget(self.value_label)
-        theme_service.bind(mode=self.apply_theme)
-        self.apply_theme()
-
-    def set_value(self, value):
-        self.value_label.text = value
-
-    def apply_theme(self, *_):
-        palette = theme_service.palette
-        self.md_bg_color = palette["card_soft"]
-        self.title_label.text_color = palette["subtle"]
-        self.value_label.text_color = palette["text"]

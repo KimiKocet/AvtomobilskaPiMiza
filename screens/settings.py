@@ -8,6 +8,7 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.screenmanager import Screen
 from kivy.uix.textinput import TextInput
+from kivy.uix.widget import Widget
 from kivymd.app import MDApp
 from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
@@ -31,7 +32,7 @@ class SettingsScreen(Screen):
         )
 
         self.bt_card = self._build_card("Bluetooth", "Minimal pairing controls and a cleaner device list.")
-        bt_body = BoxLayout(orientation="vertical", spacing=dp(14))
+        bt_body = BoxLayout(orientation="vertical", spacing=dp(12))
 
         button_row = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(52))
         self.discoverable_button = ActionPill("Make Discoverable")
@@ -41,20 +42,22 @@ class SettingsScreen(Screen):
         button_row.add_widget(self.discoverable_button)
         button_row.add_widget(self.refresh_button)
 
+        self.devices_title = self._make_text("Devices", style="title")
         self.device_list = GridLayout(cols=1, spacing=dp(10), size_hint_y=None)
         self.device_list.bind(minimum_height=self.device_list.setter("height"))
-        scroll = ScrollView(bar_width=dp(6))
+        scroll = ScrollView(bar_width=dp(6), do_scroll_x=False)
         scroll.add_widget(self.device_list)
 
         bt_body.add_widget(button_row)
+        bt_body.add_widget(self.devices_title)
         bt_body.add_widget(scroll)
         self.bt_card.add_widget(bt_body)
 
         self.system_card = self._build_card("System", "Appearance and OBD connection settings.")
-        system_body = BoxLayout(orientation="vertical", spacing=dp(14))
+        system_body = BoxLayout(orientation="vertical", spacing=dp(16))
 
         self.appearance_card = self._build_subcard()
-        appearance_body = BoxLayout(orientation="vertical", spacing=dp(10))
+        appearance_body = self._make_stack(spacing=dp(10))
         self.appearance_title = self._make_text("Appearance", style="title")
         self.appearance_copy = self._make_text("Switch the dashboard between dark and light surfaces.", style="muted")
         self.theme_button = ActionPill("Light Mode: Off", accent=False)
@@ -65,7 +68,7 @@ class SettingsScreen(Screen):
         self.appearance_card.add_widget(appearance_body)
 
         self.obd_card = self._build_subcard()
-        obd_body = BoxLayout(orientation="vertical", spacing=dp(12))
+        obd_body = self._make_stack(spacing=dp(12))
         self.obd_title = self._make_text("OBD-II", style="title")
         self.obd_copy = self._make_text("Choose the serial device used for RPM and speed telemetry.", style="muted")
         self.obd_status = self._make_text("OBD: Disconnected", style="body")
@@ -86,8 +89,8 @@ class SettingsScreen(Screen):
         self.obd_card.add_widget(obd_body)
 
         system_body.add_widget(self.appearance_card)
+        system_body.add_widget(Widget())
         system_body.add_widget(self.obd_card)
-        system_body.add_widget(BoxLayout())
         self.system_card.add_widget(system_body)
 
         main_layout.add_widget(self.bt_card)
@@ -107,15 +110,17 @@ class SettingsScreen(Screen):
         card = MDCard(
             orientation="vertical",
             padding=dp(20),
-            spacing=dp(14),
+            spacing=dp(12),
             radius=[dp(30)],
             elevation=0,
             size_hint=(0.5, 1),
         )
+        header_box = self._make_stack(spacing=dp(6))
         card.title_label = self._make_text(title, style="header")
         card.subtitle_label = self._make_text(subtitle, style="muted")
-        card.add_widget(card.title_label)
-        card.add_widget(card.subtitle_label)
+        header_box.add_widget(card.title_label)
+        header_box.add_widget(card.subtitle_label)
+        card.add_widget(header_box)
         self.cards.append(card)
         return card
 
@@ -131,6 +136,11 @@ class SettingsScreen(Screen):
         )
         self.subcards.append(card)
         return card
+
+    def _make_stack(self, spacing=0):
+        layout = BoxLayout(orientation="vertical", spacing=spacing, size_hint_y=None)
+        layout.bind(minimum_height=layout.setter("height"))
+        return layout
 
     def _make_text(self, text, style="body"):
         label = MDLabel(text=text, theme_text_color="Custom")
@@ -156,6 +166,7 @@ class SettingsScreen(Screen):
             card.md_bg_color = palette["card_soft"]
 
         for label in [
+            self.devices_title,
             self.appearance_title,
             self.obd_title,
             self.obd_status,
