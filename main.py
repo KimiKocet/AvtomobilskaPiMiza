@@ -14,6 +14,7 @@ from screens.home import HomeScreen
 from screens.map import MapScreen
 from screens.music import MusicScreen
 from screens.settings import SettingsScreen
+from services.gps import gps_service
 
 Window.top = True
 
@@ -199,7 +200,11 @@ class CarPCApp(MDApp):
     def build(self):
         self.theme_cls.theme_style = "Dark"
         Window.fullscreen = True
+        gps_service.start("/dev/ttyACM0")
         return MainScreen()
+
+    def on_stop(self):
+        gps_service.stop()
 
 
 if __name__ == "__main__":
