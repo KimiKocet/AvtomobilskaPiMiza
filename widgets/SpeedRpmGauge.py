@@ -63,9 +63,11 @@ class SpeedRpmGauge(FloatLayout):
 
         speed_ratio = min(max(self.speed / 240.0, 0), 1)
         rpm_ratio = min(max(self.rpm / max(self.max_rpm, 1), 0), 1)
-        arc_start = -210
-        arc_sweep = 240
+        arc_start = -25
+        arc_sweep = 205
         arc_end = arc_start + arc_sweep
+        redline_start_ratio = 0.83
+        redline_start_angle = arc_start + (arc_sweep * redline_start_ratio)
 
         with self.canvas.before:
             Color(0.04, 0.06, 0.11, 1)
@@ -97,7 +99,7 @@ class SpeedRpmGauge(FloatLayout):
             )
 
             Color(0.62, 0.16, 0.12, 1)
-            Line(circle=(cx, cy, radius, 6, arc_end), width=ring_width, cap="round")
+            Line(circle=(cx, cy, radius, redline_start_angle, arc_end), width=ring_width, cap="round")
 
             Color(0.06, 0.08, 0.12, 1)
             Ellipse(pos=(cx - inner_radius, cy - inner_radius), size=(inner_radius * 2, inner_radius * 2))
