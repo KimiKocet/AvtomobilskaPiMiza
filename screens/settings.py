@@ -31,7 +31,7 @@ class SettingsScreen(Screen):
             spacing=dp(18),
         )
 
-        self.bt_card = self._build_card("Bluetooth")
+        self.bt_card = self._build_card("Bluetooth", subtitle="Device list")
         bt_body = BoxLayout(orientation="vertical", spacing=dp(12))
 
         button_row = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(52))
