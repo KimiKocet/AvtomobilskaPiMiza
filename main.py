@@ -1,4 +1,13 @@
 from kivy.config import Config
+
+# Touchscreens can expose both a multitouch provider and a mouse-emulated
+# provider. Discard the mouse event when real touch activity exists so a
+# single tap does not trigger button releases twice.
+Config.set("input", "mouse", "mouse,disable_on_activity,disable_multitouch")
+Config.set("graphics", "width", "1024")
+Config.set("graphics", "height", "600")
+Config.set("graphics", "fullscreen", "0")
+
 from kivy.core.window import Window
 from kivy.graphics import Color, Ellipse, RoundedRectangle
 from kivy.metrics import dp
@@ -7,8 +16,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.screenmanager import ScreenManager
 from kivymd.app import MDApp
-from kivymd.uix.button import MDIconButton
-from kivymd.uix.label import MDLabel
+from kivymd.uix.label import MDIcon, MDLabel
 
 from screens.home import HomeScreen
 from screens.map import MapScreen
@@ -27,9 +35,6 @@ def on_focus(window, focus):
 
 Window.bind(on_focus=on_focus)
 
-Config.set("graphics", "width", "1024")
-Config.set("graphics", "height", "600")
-Config.set("graphics", "fullscreen", "0")
 Window.size = (1024, 600)
 
 
@@ -173,10 +178,15 @@ class NavButton(ButtonBehavior, BoxLayout):
             self.bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(24)])
         self.bind(pos=self._update_bg, size=self._update_bg)
 
-        self.icon = MDIconButton(icon=icon_name, pos_hint={"center_x": 0.5})
+        self.icon = MDIcon(
+            icon=icon_name,
+            halign="center",
+            theme_text_color="Custom",
+            size_hint_y=None,
+            height=dp(44),
+        )
         self.icon.font_size = dp(36)
-        self.icon.theme_icon_color = "Custom"
-        self.icon.icon_color = (0.57, 0.65, 0.75, 1)
+        self.icon.text_color = (0.57, 0.65, 0.75, 1)
         self.label = MDLabel(
             text=label_text,
             halign="center",
@@ -200,7 +210,7 @@ class NavButton(ButtonBehavior, BoxLayout):
     def apply_theme(self, *_):
         palette = theme_service.palette
         self.bg_color.rgba = palette["nav_active"] if self.active else palette["nav_bg"]
-        self.icon.icon_color = palette["text"] if self.active else palette["subtle"]
+        self.icon.text_color = palette["text"] if self.active else palette["subtle"]
         self.label.text_color = palette["text"] if self.active else palette["subtle"]
         self._update_bg()
 
