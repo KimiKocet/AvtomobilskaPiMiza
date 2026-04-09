@@ -39,20 +39,10 @@ class HomeScreen(Screen):
         right_panel.add_widget(self.media_panel)
 
         info_grid = BoxLayout(orientation="vertical", spacing=dp(14), size_hint_y=0.48)
-        top_stats = BoxLayout(orientation="horizontal", spacing=dp(14))
-        self.speed_card = StatCard("Vehicle Speed", "0 km/h", "Live OBD")
-        self.rpm_card = StatCard("Engine RPM", "0", "Combustion")
-        top_stats.add_widget(self.speed_card)
-        top_stats.add_widget(self.rpm_card)
-
-        bottom_stats = BoxLayout(orientation="horizontal", spacing=dp(14))
-        self.connection_card = StatCard("OBD Link", "Demo mode", "Connect in Settings")
-        self.clock_card = StatCard("Clock", strftime("%H:%M"), strftime("%A"))
-        bottom_stats.add_widget(self.connection_card)
-        bottom_stats.add_widget(self.clock_card)
-
-        info_grid.add_widget(top_stats)
-        info_grid.add_widget(bottom_stats)
+        self.date_card = StatCard("Date", strftime("%d %B %Y"), strftime("%A"))
+        self.clock_card = StatCard("Time", strftime("%H:%M"), "Local time")
+        info_grid.add_widget(self.date_card)
+        info_grid.add_widget(self.clock_card)
         right_panel.add_widget(info_grid)
 
         content.add_widget(left_panel)
@@ -73,8 +63,6 @@ class HomeScreen(Screen):
         if obd_service.connected:
             rpm = max(float(obd_service.rpm or 0), 0)
             speed = max(float(obd_service.speed or 0), 0)
-            status_value = "Connected"
-            status_hint = "Live telemetry"
         else:
             if self.demo_rpm >= 4200:
                 self.anim_dir = -1
@@ -84,19 +72,14 @@ class HomeScreen(Screen):
             self.demo_rpm += 50 * self.anim_dir
             rpm = self.demo_rpm
             speed = rpm / 38
-            status_value = "Demo mode"
-            status_hint = "Connect OBD in Settings"
 
         self.gauge.rpm = rpm
         self.gauge.speed = speed
         self.gauge.gear_label = self._gear_for_speed(speed)
 
-        self.speed_card.set_value(f"{int(speed)} km/h", "Wheel speed")
-        self.rpm_card.set_value(f"{int(rpm)}", "Engine load")
-        self.connection_card.set_value(status_value, status_hint)
-
     def refresh_clock(self, dt):
-        self.clock_card.set_value(strftime("%H:%M"), strftime("%A"))
+        self.clock_card.set_value(strftime("%H:%M"), "Local time")
+        self.date_card.set_value(strftime("%d %B %Y"), strftime("%A"))
 
     @staticmethod
     def _gear_for_speed(speed):
