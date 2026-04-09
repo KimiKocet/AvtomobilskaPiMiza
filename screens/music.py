@@ -65,9 +65,9 @@ class MusicScreen(Screen):
         self.selected_card = _SelectedPlaylistCard()
         self.selected_card.play_button.bind(on_release=lambda *_: self.play_playlist())
 
-        self.playlist_list = GridLayout(cols=0, spacing=dp(8), size_hint_x=None)
+        self.playlist_list = GridLayout(rows=1, spacing=dp(8), size_hint_x=None)
         self.playlist_list.bind(minimum_width=self.playlist_list.setter("width"))
-        self.playlist_scroll = ScrollView(bar_height=dp(5), do_scroll_y=False)
+        self.playlist_scroll = ScrollView(bar_width=dp(5), do_scroll_x=True, do_scroll_y=False)
         self.playlist_scroll.add_widget(self.playlist_list)
 
         self.connect_button = _MusicButton("Connect")
