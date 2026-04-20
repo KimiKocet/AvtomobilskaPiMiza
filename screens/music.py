@@ -30,7 +30,7 @@ class MusicScreen(Screen):
         self.left = MDCard(
             orientation="vertical",
             padding=dp(22),
-            spacing=dp(12),
+            spacing=dp(14),
             radius=[dp(30)],
             elevation=0,
             size_hint=(0.42, 1),
@@ -81,8 +81,9 @@ class MusicScreen(Screen):
             orientation="horizontal",
             spacing=dp(8),
             size_hint_y=None,
-            height=dp(40),
+            height=dp(48),
         )
+        self.connect_button.size_hint_x = 1.15
         button_row.add_widget(self.connect_button)
         button_row.add_widget(self.refresh_button)
         button_row.add_widget(self.sign_out_button)
@@ -302,7 +303,7 @@ class _MusicButton(ButtonBehavior, AnchorLayout):
         super().__init__(**kwargs)
         self.accent = accent
         self.size_hint_y = None
-        self.height = dp(40)
+        self.height = dp(48)
         self.padding = (dp(12), 0)
         self.anchor_x = "center"
         self.anchor_y = "center"
@@ -316,10 +317,14 @@ class _MusicButton(ButtonBehavior, AnchorLayout):
         self.label = MDLabel(
             text=text,
             halign="center",
+            valign="middle",
             theme_text_color="Custom",
             bold=True,
-            font_size="12sp",
+            font_size="11sp",
+            shorten=True,
+            max_lines=1,
         )
+        self.label.bind(size=lambda widget, _size: setattr(widget, "text_size", widget.size))
         self.add_widget(self.label)
         theme_service.bind(mode=self.apply_theme)
         self.apply_theme()
@@ -349,52 +354,85 @@ class _SelectedPlaylistCard(MDCard):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.orientation = "vertical"
-        self.padding = dp(16)
-        self.spacing = dp(8)
+        self.padding = dp(18)
+        self.spacing = dp(12)
         self.radius = [dp(24)]
         self.elevation = 0
-        self.size_hint_y = None
-        self.height = dp(248)
+        self.size_hint_y = 1
 
         self.eyebrow_label = MDLabel(
             text="Selected",
             theme_text_color="Custom",
-            adaptive_height=True,
+            size_hint_y=None,
+            height=dp(20),
         )
         self.title_label = MDLabel(
             text="No playlist loaded",
             theme_text_color="Custom",
             bold=True,
-            adaptive_height=True,
+            size_hint_y=None,
+            font_style="H6",
         )
         self.meta_label = MDLabel(
             text="",
             theme_text_color="Custom",
-            adaptive_height=True,
+            size_hint_y=None,
         )
         self.body_label = MDLabel(
             text="Tap Refresh to load Spotify playlists.",
             theme_text_color="Custom",
-            adaptive_height=True,
+            size_hint_y=None,
+            valign="top",
         )
-        self.tracks_box = GridLayout(cols=1, spacing=dp(6), size_hint_y=None)
+        self.header_box = BoxLayout(
+            orientation="vertical",
+            spacing=dp(4),
+            size_hint_y=None,
+        )
+        self.header_box.bind(minimum_height=self.header_box.setter("height"))
+        self.tracks_box = GridLayout(cols=1, spacing=dp(8), size_hint=(1, None), padding=(0, 0, 0, dp(2)))
         self.tracks_box.bind(minimum_height=self.tracks_box.setter("height"))
+        self.tracks_scroll = ScrollView(
+            do_scroll_x=False,
+            bar_width=dp(4),
+            scroll_type=["bars", "content"],
+        )
+        self.tracks_scroll.add_widget(self.tracks_box)
         self.play_button = _MusicButton("Play Playlist")
 
-        self.add_widget(self.eyebrow_label)
-        self.add_widget(self.title_label)
-        self.add_widget(self.meta_label)
-        self.add_widget(self.body_label)
-        self.add_widget(self.tracks_box)
+        self.header_box.add_widget(self.eyebrow_label)
+        self.header_box.add_widget(self.title_label)
+        self.header_box.add_widget(self.meta_label)
+        self.header_box.add_widget(self.body_label)
+
+        self.add_widget(self.header_box)
+        self.add_widget(self.tracks_scroll)
         self.add_widget(self.play_button)
+
+        self._wrap_label(self.title_label)
+        self._wrap_label(self.meta_label)
+        self._wrap_label(self.body_label)
         theme_service.bind(mode=self.apply_theme)
         self.apply_theme()
+
+    @staticmethod
+    def _wrap_label(label):
+        def _sync_text_width(instance, width):
+            instance.text_size = (width, None)
+
+        def _sync_height(instance, texture_size):
+            instance.height = texture_size[1]
+
+        label.bind(width=_sync_text_width)
+        label.bind(texture_size=_sync_height)
+        label.text_size = (label.width, None)
 
     def set_message(self, title, body):
         self.title_label.text = title
         self.meta_label.text = ""
         self.body_label.text = body
         self.tracks_box.clear_widgets()
+        self.tracks_scroll.scroll_y = 1
         self.play_button.disabled = True
 
     def set_loading(self, playlist):
@@ -402,12 +440,14 @@ class _SelectedPlaylistCard(MDCard):
         self.meta_label.text = f'{playlist["owner"]}  |  {playlist["tracks_total"]} tracks'
         self.body_label.text = "Loading preview..."
         self.tracks_box.clear_widgets()
+        self.tracks_scroll.scroll_y = 1
         self.play_button.disabled = True
 
     def set_playlist(self, playlist, body):
         self.title_label.text = playlist["name"]
         self.meta_label.text = f'{playlist["owner"]}  |  {playlist["tracks_total"]} tracks'
         self.body_label.text = body
+        self.tracks_scroll.scroll_y = 1
         self.play_button.disabled = False
 
     def apply_theme(self, *_):
@@ -497,10 +537,10 @@ class _TrackRow(ButtonBehavior, BoxLayout):
     def __init__(self, index, title, subtitle, hint, **kwargs):
         super().__init__(**kwargs)
         self.orientation = "horizontal"
-        self.spacing = dp(10)
-        self.padding = dp(10)
+        self.spacing = dp(12)
+        self.padding = (dp(12), dp(10))
         self.size_hint_y = None
-        self.height = dp(46)
+        self.height = dp(64)
         self.corner_radius = [dp(18)]
 
         with self.canvas.before:
@@ -511,30 +551,48 @@ class _TrackRow(ButtonBehavior, BoxLayout):
         self.index_label = MDLabel(
             text=f"{index:02d}",
             size_hint=(None, 1),
-            width=dp(34),
+            width=dp(42),
             halign="center",
+            valign="middle",
             theme_text_color="Custom",
             bold=True,
         )
-        text_box = BoxLayout(orientation="vertical", spacing=dp(1))
+        self.index_label.bind(size=lambda widget, _size: setattr(widget, "text_size", widget.size))
+        text_box = BoxLayout(orientation="vertical", spacing=dp(3), size_hint=(1, 1))
         self.title_label = MDLabel(
             text=title,
             theme_text_color="Custom",
             bold=True,
+            size_hint_y=None,
+            height=dp(22),
+            shorten=True,
+            max_lines=1,
+            valign="middle",
         )
         self.subtitle_label = MDLabel(
             text=subtitle,
             theme_text_color="Custom",
+            size_hint_y=None,
+            height=dp(20),
+            shorten=True,
+            max_lines=1,
+            valign="middle",
         )
+        self.title_label.bind(size=lambda widget, _size: setattr(widget, "text_size", widget.size))
+        self.subtitle_label.bind(size=lambda widget, _size: setattr(widget, "text_size", widget.size))
         text_box.add_widget(self.title_label)
         text_box.add_widget(self.subtitle_label)
         self.hint_label = MDLabel(
             text=hint,
             size_hint=(None, 1),
-            width=dp(48),
+            width=dp(56),
             halign="right",
+            valign="middle",
             theme_text_color="Custom",
+            shorten=True,
+            max_lines=1,
         )
+        self.hint_label.bind(size=lambda widget, _size: setattr(widget, "text_size", widget.size))
 
         self.add_widget(self.index_label)
         self.add_widget(text_box)

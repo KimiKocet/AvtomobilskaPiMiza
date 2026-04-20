@@ -72,14 +72,14 @@ class MainScreen(FloatLayout):
 
         brand_box = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(96), spacing=dp(2))
         self.brand_title = MDLabel(
-            text="Drive",
+            text="PiMiza",
             theme_text_color="Custom",
             text_color=(0.98, 0.99, 1, 1),
             bold=True,
             font_style="H4",
         )
         self.brand_subtitle = MDLabel(
-            text="Media + telemetry",
+            text="Car media",
             theme_text_color="Custom",
             text_color=(0.45, 0.77, 1, 1),
         )
@@ -94,7 +94,7 @@ class MainScreen(FloatLayout):
             ("map", "Map", "maps"),
             ("cog", "Setup", "settings"),
         ]:
-            button = NavButton(icon_name=icon, label_text=label)
+            button = NavButton(icon_name=icon, label_text="")
             button.bind(on_release=lambda _, screen=name: self.change_screen(screen))
             self.nav_buttons[name] = button
             self.menu_layout.add_widget(button)
