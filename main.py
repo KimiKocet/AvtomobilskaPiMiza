@@ -1,5 +1,3 @@
-import threading
-
 from kivy.config import Config
 
 # Touchscreens can expose both a multitouch provider and a mouse-emulated
@@ -240,7 +238,6 @@ class CarPCApp(MDApp):
         self.set_theme_mode(theme_service.mode)
         Window.fullscreen = True
         gps_service.start("/dev/ttyACM0")
-        threading.Thread(target=obd_service.autoconnect, daemon=True).start()
         return MainScreen()
 
     def on_stop(self):
