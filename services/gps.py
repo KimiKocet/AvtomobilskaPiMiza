@@ -28,6 +28,7 @@ class GPSService(EventDispatcher):
     speed_kmh = NumericProperty(0)
     heading = NumericProperty(0)
     satellites = NumericProperty(0)
+    satellites_in_view = NumericProperty(0)
     has_fix = BooleanProperty(False)
     connected = BooleanProperty(False)
     status = StringProperty("GPS idle")
@@ -59,7 +60,7 @@ class GPSService(EventDispatcher):
             self.ser = serial.Serial(port, baudrate, timeout=1)
             self.running = True
             self.connected = True
-            self.status = "Searching for GPS..."
+            self.status = "GPS connected, waiting for fix..."
             self.thread = threading.Thread(target=self._read_loop, daemon=True)
             self.thread.start()
             return True
@@ -94,6 +95,8 @@ class GPSService(EventDispatcher):
                     self._handle_rmc(line)
                 elif line.startswith(("$GPVTG", "$GNVTG")):
                     self._handle_vtg(line)
+                elif line.startswith(("$GPGSV", "$GNGSV")):
+                    self._handle_gsv(line)
             except Exception as exc:
                 Clock.schedule_once(lambda dt, message=str(exc): self._apply_error(message))
                 time.sleep(0.2)
@@ -132,13 +135,18 @@ class GPSService(EventDispatcher):
         heading = float(msg.true_track or 0) if msg.true_track else 0
         Clock.schedule_once(lambda dt, speed=speed, heading=heading: self._apply_speed_heading(speed, heading))
 
+    def _handle_gsv(self, line):
+        msg = pynmea2.parse(line)
+        satellites_in_view = int(msg.num_sv_in_view or 0)
+        Clock.schedule_once(lambda dt, total=satellites_in_view: self._apply_satellites_in_view(total))
+
     def _apply_fix(self, lat, lon, satellites):
         self.lat = lat
         self.lon = lon
         self.satellites = satellites
         self.has_fix = True
         self.connected = True
-        self.status = "GPS fixed"
+        self.status = self._format_fix_status()
         route_service.update_position(lat, lon)
         self._maybe_reverse_lookup(lat, lon)
 
@@ -149,7 +157,7 @@ class GPSService(EventDispatcher):
         self.heading = heading
         self.has_fix = True
         self.connected = True
-        self.status = "GPS fixed"
+        self.status = self._format_fix_status()
         route_service.update_position(lat, lon)
         self._maybe_reverse_lookup(lat, lon)
 
@@ -157,11 +165,16 @@ class GPSService(EventDispatcher):
         self.speed_kmh = speed
         self.heading = heading
 
+    def _apply_satellites_in_view(self, satellites_in_view):
+        self.satellites_in_view = satellites_in_view
+        if not self.has_fix:
+            self.status = self._format_search_status()
+
     def _apply_no_fix(self, satellites):
         self.has_fix = False
         self.satellites = satellites
         self.speed_kmh = 0
-        self.status = "Searching for GPS..."
+        self.status = self._format_search_status()
         if not self.road_name and not self.town_name:
             self.location_label = "Waiting for GPS..."
 
@@ -169,7 +182,21 @@ class GPSService(EventDispatcher):
         self.has_fix = False
         self.connected = False
         self.speed_kmh = 0
+        self.satellites = 0
+        self.satellites_in_view = 0
         self.status = f"GPS read error: {message}"
+
+    def _format_fix_status(self):
+        if self.satellites_in_view:
+            return f"GPS fixed ({self.satellites}/{self.satellites_in_view} sats)"
+        if self.satellites:
+            return f"GPS fixed ({self.satellites} sats)"
+        return "GPS fixed"
+
+    def _format_search_status(self):
+        if self.satellites_in_view:
+            return f"GPS connected, no fix yet (0/{self.satellites_in_view} sats)"
+        return "GPS connected, waiting for satellites..."
 
     def _maybe_reverse_lookup(self, lat, lon):
         now = time.monotonic()

@@ -1,3 +1,5 @@
+import threading
+
 from kivy.config import Config
 
 # Touchscreens can expose both a multitouch provider and a mouse-emulated
@@ -24,6 +26,7 @@ from screens.map import MapScreen
 from screens.music import MusicScreen
 from screens.settings import SettingsScreen
 from services.gps import gps_service
+from services.obd import obd_service
 from services.theme import theme_service
 
 Window.top = True
@@ -168,6 +171,7 @@ class NavButton(ButtonBehavior, AnchorLayout):
     def __init__(self, icon_name, label_text, **kwargs):
         super().__init__(**kwargs)
         self.active = False
+        self.label_text = label_text
         self.anchor_x = "center"
         self.anchor_y = "center"
         self.size_hint_y = None
@@ -184,8 +188,8 @@ class NavButton(ButtonBehavior, AnchorLayout):
             spacing=dp(6),
             padding=(0, 0),
         )
-        
-        icon_anchor = AnchorLayout(anchor_x="center", anchor_y="center", size_hint=(1, 0.6))
+
+        icon_anchor = AnchorLayout(anchor_x="center", anchor_y="center", size_hint=(1, 1 if not label_text else 0.6))
         self.icon = MDIcon(
             icon=icon_name,
             theme_text_color="Custom",
@@ -196,19 +200,20 @@ class NavButton(ButtonBehavior, AnchorLayout):
         self.icon.text_color = (0.57, 0.65, 0.75, 1)
         icon_anchor.add_widget(self.icon)
         
-        label_anchor = AnchorLayout(anchor_x="center", anchor_y="center", size_hint=(1, 0.4))
-        self.label = MDLabel(
-            text=label_text,
-            theme_text_color="Custom",
-            text_color=(0.57, 0.65, 0.75, 1),
-            bold=True,
-            size_hint_y=None,
-            height=dp(16),
-        )
-        label_anchor.add_widget(self.label)
-        
         self.content.add_widget(icon_anchor)
-        self.content.add_widget(label_anchor)
+        self.label = None
+        if label_text:
+            label_anchor = AnchorLayout(anchor_x="center", anchor_y="center", size_hint=(1, 0.4))
+            self.label = MDLabel(
+                text=label_text,
+                theme_text_color="Custom",
+                text_color=(0.57, 0.65, 0.75, 1),
+                bold=True,
+                size_hint_y=None,
+                height=dp(16),
+            )
+            label_anchor.add_widget(self.label)
+            self.content.add_widget(label_anchor)
         self.add_widget(self.content)
         theme_service.bind(mode=self.apply_theme)
         self.apply_theme()
@@ -225,7 +230,8 @@ class NavButton(ButtonBehavior, AnchorLayout):
         palette = theme_service.palette
         self.bg_color.rgba = palette["nav_active"] if self.active else palette["nav_bg"]
         self.icon.text_color = palette["text"] if self.active else palette["subtle"]
-        self.label.text_color = palette["text"] if self.active else palette["subtle"]
+        if self.label is not None:
+            self.label.text_color = palette["text"] if self.active else palette["subtle"]
         self._update_bg()
 
 
@@ -234,10 +240,12 @@ class CarPCApp(MDApp):
         self.set_theme_mode(theme_service.mode)
         Window.fullscreen = True
         gps_service.start("/dev/ttyACM0")
+        threading.Thread(target=obd_service.autoconnect, daemon=True).start()
         return MainScreen()
 
     def on_stop(self):
         gps_service.stop()
+        obd_service.disconnect()
 
     def set_theme_mode(self, mode):
         theme_service.set_mode(mode)

@@ -1,3 +1,5 @@
+import threading
+
 from kivy.clock import Clock
 from kivy.graphics import Color, RoundedRectangle
 from kivy.metrics import dp
@@ -81,8 +83,8 @@ class SettingsScreen(Screen):
         self.obd_card = self._build_subcard()
         obd_body = self._make_stack(spacing=dp(12))
         self.obd_title = self._make_text("OBD-II", style="title")
-        self.obd_copy = self._make_text("Choose the serial device used for RPM and speed telemetry.", style="muted")
-        self.obd_status = self._make_text("OBD: Disconnected", style="body")
+        self.obd_copy = self._make_text("Choose the serial device used for RPM and speed telemetry, or leave it as-is for auto-detect.", style="muted")
+        self.obd_status = self._make_text("OBD: Idle", style="body")
         self.port_input = TextInput(
             text="/dev/ttyUSB0",
             multiline=False,
@@ -114,6 +116,9 @@ class SettingsScreen(Screen):
             self.discoverable_button.set_text("Discoverable: On")
 
         self._sync_obd_state()
+        obd_service.bind(connected=self._sync_obd_state)
+        obd_service.bind(status=self._sync_obd_state)
+        obd_service.bind(port_name=self._sync_obd_state)
         theme_service.bind(mode=self._apply_theme)
         self._apply_theme()
         Clock.schedule_interval(self.refresh_devices, 3)
@@ -207,12 +212,14 @@ class SettingsScreen(Screen):
             if hasattr(child, "apply_theme"):
                 child.apply_theme()
 
-    def _sync_obd_state(self):
+    def _sync_obd_state(self, *_):
         if obd_service.connected:
-            self.obd_status.text = "OBD: Connected"
+            self.obd_status.text = obd_service.status or "OBD connected"
             self.obd_button.set_text("Disconnect OBD")
+            if obd_service.port_name:
+                self.port_input.text = obd_service.port_name
         else:
-            self.obd_status.text = "OBD: Disconnected"
+            self.obd_status.text = obd_service.status or "OBD disconnected"
             self.obd_button.set_text("Connect OBD")
 
     def toggle_theme(self, *_):
@@ -232,12 +239,10 @@ class SettingsScreen(Screen):
     def toggle_obd(self, *_):
         if obd_service.connected:
             obd_service.disconnect()
+            self._sync_obd_state()
         else:
-            if not obd_service.connect(self.port_input.text.strip()):
-                self.obd_status.text = "OBD: Failed to connect"
-                self.obd_button.set_text("Connect OBD")
-                return
-        self._sync_obd_state()
+            self.obd_status.text = "Scanning for OBD adapter..."
+            threading.Thread(target=lambda: obd_service.connect(self.port_input.text.strip()), daemon=True).start()
 
     def refresh_devices(self, dt):
         self.device_list.clear_widgets()
