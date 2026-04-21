@@ -44,7 +44,9 @@ class SpotifyService(EventDispatcher):
     busy = BooleanProperty(False)
     status = StringProperty("Spotify is not configured.")
     account_name = StringProperty("Not connected")
+    account_product = StringProperty("unknown")
     device_name = StringProperty("No Spotify device")
+    playback_available = BooleanProperty(False)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -87,7 +89,9 @@ class SpotifyService(EventDispatcher):
             self._dispatch_state(
                 connected=False,
                 account_name="Not connected",
+                account_product="unknown",
                 device_name="No Spotify device",
+                playback_available=False,
                 status="Create spotify_config.json with your Spotify Client ID.",
             )
             return
@@ -118,11 +122,17 @@ class SpotifyService(EventDispatcher):
                 code = self._wait_for_authorization(auth_url, state)
                 self._exchange_code_for_token(code, code_verifier)
                 profile = self.get_profile()
-                display_name = profile.get("display_name") or "Spotify user"
+                display_name, product, playback_available = self._profile_summary(profile)
                 self._dispatch_state(
                     connected=True,
                     account_name=display_name,
-                    status=f"Connected as {display_name}.",
+                    account_product=product,
+                    playback_available=playback_available,
+                    status=(
+                        f"Connected as {display_name}."
+                        if playback_available
+                        else f"Connected as {display_name}. Playback controls require Spotify Premium."
+                    ),
                 )
                 return display_name
             finally:
@@ -139,12 +149,24 @@ class SpotifyService(EventDispatcher):
         self._dispatch_state(
             connected=False,
             account_name="Not connected",
+            account_product="unknown",
             device_name="No Spotify device",
+            playback_available=False,
             status="Spotify disconnected.",
         )
 
     def get_profile(self):
         return self.api_request("GET", "/me")
+
+    def sync_profile(self, profile):
+        display_name, product, playback_available = self._profile_summary(profile)
+        self._dispatch_state(
+            connected=True,
+            account_name=display_name,
+            account_product=product,
+            playback_available=playback_available,
+        )
+        return display_name, product, playback_available
 
     def get_playlists(self, limit=12):
         payload = self.api_request(
@@ -225,6 +247,8 @@ class SpotifyService(EventDispatcher):
         return devices
 
     def play_playlist(self, playlist_uri, offset=None):
+        if not self.playback_available:
+            raise SpotifyError("Spotify Premium is required to launch playlists from this dashboard.")
         target = self._ensure_playback_device()
         body = {"context_uri": playlist_uri}
         if offset is not None:
@@ -237,6 +261,8 @@ class SpotifyService(EventDispatcher):
         return target
 
     def _ensure_playback_device(self):
+        if not self.playback_available:
+            raise SpotifyError("Spotify Premium is required to control playback devices.")
         devices = self.get_devices()
         active = next((device for device in devices if device["active"] and not device["restricted"] and device["id"]), None)
         if active:
@@ -274,6 +300,8 @@ class SpotifyService(EventDispatcher):
                 return json.loads(payload) if payload else {}
         except urllib.error.HTTPError as exc:
             details = self._extract_http_error(exc)
+            if exc.code == 403 and self._is_playback_restricted(path, details):
+                self._dispatch_state(playback_available=False)
             if exc.code == 401 and retry and self._tokens.get("refresh_token"):
                 self._refresh_access_token()
                 return self.api_request(method, path, query=query, body=body, retry=False)
@@ -451,6 +479,20 @@ class SpotifyService(EventDispatcher):
         else:
             message = payload.get("error_description") or str(error)
         return message or f"Spotify request failed with HTTP {exc.code}."
+
+    @staticmethod
+    def _profile_summary(profile):
+        display_name = profile.get("display_name") or "Spotify user"
+        product = (profile.get("product") or "unknown").strip().lower()
+        playback_available = product == "premium"
+        return display_name, product, playback_available
+
+    @staticmethod
+    def _is_playback_restricted(path, details):
+        if not path.startswith("/me/player"):
+            return False
+        text = (details or "").lower()
+        return "premium" in text or "restriction" in text or "restricted" in text
 
     def _load_tokens(self):
         if not os.path.exists(self.token_path):

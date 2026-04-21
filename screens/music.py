@@ -132,7 +132,9 @@ class MusicScreen(Screen):
         spotify_service.bind(connected=self._sync_spotify_state)
         spotify_service.bind(busy=self._sync_spotify_state)
         spotify_service.bind(account_name=self._sync_spotify_state)
+        spotify_service.bind(account_product=self._sync_spotify_state)
         spotify_service.bind(device_name=self._sync_spotify_state)
+        spotify_service.bind(playback_available=self._sync_spotify_state)
         self._sync_spotify_state()
         self._apply_theme()
 
@@ -162,11 +164,17 @@ class MusicScreen(Screen):
         self.connect_button.disabled = spotify_service.busy
         self.refresh_button.disabled = spotify_service.busy or not spotify_service.configured
         self.sign_out_button.disabled = spotify_service.busy or not spotify_service.configured
+        self.selected_card.play_button.disabled = not bool(self.selected_playlist and spotify_service.playback_available)
 
         if not spotify_service.configured and not self.playlists:
             self.selected_card.set_message(
                 "Spotify setup needed",
                 "Add your client ID to spotify_config.json, then connect from this screen.",
+            )
+        elif spotify_service.connected and not spotify_service.playback_available and not self.playlists and not spotify_service.busy:
+            self.selected_card.set_message(
+                "Spotify connected",
+                "Your account can sign in and browse data, but playlist launch is locked because Spotify Premium is unavailable.",
             )
         elif spotify_service.configured and not self.playlists and not spotify_service.busy:
             self.selected_card.set_message(
@@ -216,12 +224,21 @@ class MusicScreen(Screen):
         try:
             spotify_service.reload_config()
             profile = spotify_service.get_profile()
-            display_name = profile.get("display_name") or "Spotify user"
-            spotify_service._dispatch_state(account_name=display_name, connected=True)
+            display_name, _product, playback_available = spotify_service.sync_profile(profile)
             playlists = spotify_service.get_playlists(limit=14)
-            spotify_service.get_devices()
+            device_warning = ""
+            try:
+                spotify_service.get_devices()
+            except SpotifyError as exc:
+                device_warning = str(exc)
             Clock.schedule_once(lambda _dt, data=playlists: self._populate_playlists(data), 0)
-            spotify_service.set_status(f"Loaded {len(playlists)} playlists.", busy=False)
+            if playback_available:
+                spotify_service.set_status(f"Loaded {len(playlists)} playlists.", busy=False)
+            else:
+                message = f"Loaded {len(playlists)} playlists. Playback controls are locked because Spotify Premium is unavailable."
+                if device_warning:
+                    message = f"{message} {device_warning}"
+                spotify_service.set_status(message, busy=False)
         except SpotifyError as exc:
             spotify_service.set_status(str(exc), busy=False)
 
@@ -276,6 +293,9 @@ class MusicScreen(Screen):
             return
 
         body = playlist["description"] or fallback_note or "Select Play Playlist to launch this list on your active device."
+        if not spotify_service.playback_available:
+            lock_note = "Playback is locked because Spotify Premium is unavailable."
+            body = f"{body}\n\n{lock_note}" if body else lock_note
         self.selected_card.set_playlist(playlist, body)
         self.selected_card.tracks_box.clear_widgets()
 
@@ -286,8 +306,11 @@ class MusicScreen(Screen):
                 subtitle=item["artists"],
                 hint=item["duration_label"],
             )
-            row.bind(on_release=lambda _row, position=index: self.play_playlist(offset=position))
+            if spotify_service.playback_available:
+                row.bind(on_release=lambda _row, position=index: self.play_playlist(offset=position))
             self.selected_card.tracks_box.add_widget(row)
+
+        self.selected_card.play_button.disabled = not spotify_service.playback_available
 
         self._apply_theme()
 
