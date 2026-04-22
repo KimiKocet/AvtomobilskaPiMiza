@@ -52,9 +52,6 @@ class OBDService(EventDispatcher):
             self._schedule_apply(status="OBD unavailable: install python-obd or pyserial")
             return False
 
-        # Prefer the direct ELM327 serial path for Bluetooth/USB dongles.
-        # Some adapters report as "connected" through python-obd before they
-        # are actually ready to answer the BMW ECU with stable live data.
         if serial is not None and self._connect_with_elm327(requested_port):
             return True
 

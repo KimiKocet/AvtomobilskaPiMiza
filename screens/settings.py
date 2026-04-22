@@ -33,7 +33,7 @@ class SettingsScreen(Screen):
             spacing=dp(18),
         )
 
-        self.bt_card = self._build_card("Bluetooth", subtitle="Device list")
+        self.bt_card = self._build_card("Bluetooth", subtitle="")
         bt_body = BoxLayout(orientation="vertical", spacing=dp(12))
 
         button_row = BoxLayout(orientation="horizontal", spacing=dp(10), size_hint_y=None, height=dp(52))
@@ -55,7 +55,7 @@ class SettingsScreen(Screen):
         bt_body.add_widget(scroll)
         self.bt_card.add_widget(bt_body)
 
-        self.system_card = self._build_card("System", subtitle="System configuration")
+        self.system_card = self._build_card("", subtitle="")
         system_body = BoxLayout(orientation="vertical", spacing=dp(16))
 
         self.appearance_card = self._build_subcard()
