@@ -37,6 +37,8 @@ class OBDService(EventDispatcher):
         self.running = False
         self.thread = None
         self._lock = threading.Lock()
+        self._elm_protocol_id = ""
+        self._last_vehicle_probe_time = 0.0
 
     def connect(self, port=None):
         requested_port = (port or "").strip()
@@ -50,10 +52,13 @@ class OBDService(EventDispatcher):
             self._schedule_apply(status="OBD unavailable: install python-obd or pyserial")
             return False
 
-        if obd is not None and self._connect_with_python_obd(requested_port):
+        # Prefer the direct ELM327 serial path for Bluetooth/USB dongles.
+        # Some adapters report as "connected" through python-obd before they
+        # are actually ready to answer the BMW ECU with stable live data.
+        if serial is not None and self._connect_with_elm327(requested_port):
             return True
 
-        if serial is not None and self._connect_with_elm327(requested_port):
+        if obd is not None and self._connect_with_python_obd(requested_port):
             return True
 
         if requested_port:
@@ -68,6 +73,8 @@ class OBDService(EventDispatcher):
 
     def disconnect(self, update_status=True):
         self.running = False
+        self._elm_protocol_id = ""
+        self._last_vehicle_probe_time = 0.0
 
         if self.connection:
             try:
@@ -133,17 +140,25 @@ class OBDService(EventDispatcher):
                 try:
                     ser = serial.Serial(candidate, baudrate=baudrate, timeout=0.35, write_timeout=0.35)
                     if self._initialize_elm327(ser):
+                        protocol_id = self._prime_vehicle_bus(ser)
                         self.serial_connection = ser
                         self.port_name = candidate
-                        self.backend = f"elm327@{baudrate}"
+                        self._elm_protocol_id = protocol_id
+                        protocol_suffix = f":{protocol_id}" if protocol_id else ""
+                        self.backend = f"elm327@{baudrate}{protocol_suffix}"
                         self.running = True
                         self.thread = threading.Thread(target=self._elm327_loop, daemon=True)
                         self.thread.start()
+                        status = (
+                            f"OBD connected on {candidate}"
+                            if protocol_id
+                            else f"ELM327 connected on {candidate}, waiting for ECU data..."
+                        )
                         self._schedule_apply(
                             connected=True,
                             port_name=candidate,
                             backend=self.backend,
-                            status=f"OBD connected on {candidate}",
+                            status=status,
                         )
                         return True
                     ser.close()
@@ -183,14 +198,28 @@ class OBDService(EventDispatcher):
     def _elm327_loop(self):
         while self.running and self.serial_connection:
             try:
+                if not self._elm_protocol_id and time.monotonic() - self._last_vehicle_probe_time >= 2.0:
+                    protocol_id = self._prime_vehicle_bus(self.serial_connection)
+                    if protocol_id:
+                        self._elm_protocol_id = protocol_id
+                        self.backend = re.sub(r":.*$", "", self.backend) + f":{protocol_id}"
+
                 rpm = self._read_rpm_elm327()
                 speed = self._read_speed_elm327()
+                if (rpm is not None or speed is not None) and not self._elm_protocol_id:
+                    self._elm_protocol_id = "auto"
+                    self.backend = re.sub(r":.*$", "", self.backend) + ":auto"
                 if rpm is None and speed is None:
                     self._schedule_apply(
                         connected=True,
                         speed=0,
                         rpm=0,
-                        status=f"OBD connected on {self.port_name}, waiting for vehicle data...",
+                        status=(
+                            f"ELM327 connected on {self.port_name}, waiting for ECU data..."
+                            if not self._elm_protocol_id
+                            else f"OBD connected on {self.port_name}, waiting for vehicle data..."
+                        ),
+                        backend=self.backend,
                     )
                 else:
                     self._schedule_apply(
@@ -198,6 +227,7 @@ class OBDService(EventDispatcher):
                         speed=float(speed or 0),
                         rpm=float(rpm or 0),
                         status=f"OBD connected on {self.port_name}",
+                        backend=self.backend,
                     )
             except Exception as exc:
                 self._schedule_apply(status=f"OBD read error: {exc}")
@@ -232,6 +262,8 @@ class OBDService(EventDispatcher):
             ("ATL0", 0.4),
             ("ATS0", 0.4),
             ("ATH0", 0.4),
+            ("ATAT1", 0.4),
+            ("ATST32", 0.4),
             ("ATSP0", 0.6),
         ]
 
@@ -244,9 +276,22 @@ class OBDService(EventDispatcher):
                 return False
         return True
 
+    def _prime_vehicle_bus(self, ser):
+        self._last_vehicle_probe_time = time.monotonic()
+        for protocol_id in ("0", "6", "7", "5", "4", "3"):
+            response = self._send_serial_command(ser, f"ATSP{protocol_id}", timeout=0.6)
+            normalized = self._normalize_response(response)
+            if not normalized or "ERROR" in normalized:
+                continue
+
+            warmup = self._send_serial_command(ser, "0100", timeout=1.2)
+            normalized = self._normalize_response(warmup)
+            if self._has_pid_payload(normalized, "4100"):
+                return protocol_id
+        return ""
+
     def _read_rpm_elm327(self):
-        response = self._send_serial_command(self.serial_connection, "010C", timeout=0.55)
-        normalized = self._normalize_response(response)
+        normalized = self._query_pid_elm327("010C", timeout=0.7)
         match = re.search(r"410C([0-9A-F]{4})", normalized)
         if not match:
             return None
@@ -254,12 +299,20 @@ class OBDService(EventDispatcher):
         return ((int(raw[:2], 16) * 256) + int(raw[2:], 16)) / 4
 
     def _read_speed_elm327(self):
-        response = self._send_serial_command(self.serial_connection, "010D", timeout=0.55)
-        normalized = self._normalize_response(response)
+        normalized = self._query_pid_elm327("010D", timeout=0.7)
         match = re.search(r"410D([0-9A-F]{2})", normalized)
         if not match:
             return None
         return int(match.group(1), 16)
+
+    def _query_pid_elm327(self, command, timeout=0.7):
+        for _ in range(2):
+            response = self._send_serial_command(self.serial_connection, command, timeout=timeout)
+            normalized = self._normalize_response(response)
+            if self._has_elm_error(normalized):
+                continue
+            return normalized
+        return ""
 
     def _send_serial_command(self, ser, command, timeout=0.5):
         with self._lock:
@@ -280,8 +333,31 @@ class OBDService(EventDispatcher):
     @staticmethod
     def _normalize_response(response):
         text = (response or "").upper().replace("SEARCHING...", "")
+        text = text.replace("BUSINIT...", "").replace("BUSINIT:", "")
         text = text.replace("\r", "").replace("\n", "").replace(" ", "").replace(">", "")
         return text
+
+    @staticmethod
+    def _has_elm_error(normalized):
+        if not normalized:
+            return True
+        return any(
+            marker in normalized
+            for marker in (
+                "NODATA",
+                "UNABLETOCONNECT",
+                "ERROR",
+                "STOPPED",
+                "CANERROR",
+                "?",
+            )
+        )
+
+    @staticmethod
+    def _has_pid_payload(normalized, prefix):
+        if not normalized:
+            return False
+        return prefix in normalized and not OBDService._has_elm_error(normalized)
 
     @staticmethod
     def _candidate_ports(requested_port):
@@ -296,21 +372,21 @@ class OBDService(EventDispatcher):
         if requested_port:
             _add(requested_port)
 
+        for preferred in (
+            "/dev/rfcomm0",
+            "/dev/rfcomm1",
+            "/dev/ttyUSB0",
+            "/dev/ttyUSB1",
+            "/dev/ttyUSB2",
+            "/dev/serial0",
+        ):
+            _add(preferred)
+
         if list_ports is not None:
             for port in list_ports.comports():
                 device = port.device
                 if any(token in device for token in ("ttyUSB", "rfcomm", "serial", "usbserial")):
                     _add(device)
-
-        for fallback in (
-            "/dev/ttyUSB0",
-            "/dev/ttyUSB1",
-            "/dev/ttyUSB2",
-            "/dev/rfcomm0",
-            "/dev/rfcomm1",
-            "/dev/serial0",
-        ):
-            _add(fallback)
 
         return ports
 

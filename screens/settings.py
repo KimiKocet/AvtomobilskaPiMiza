@@ -83,10 +83,10 @@ class SettingsScreen(Screen):
         self.obd_card = self._build_subcard()
         obd_body = self._make_stack(spacing=dp(12))
         self.obd_title = self._make_text("OBD-II", style="title")
-        self.obd_copy = self._make_text("Choose the serial device used for RPM and speed telemetry, or leave it as-is for auto-detect.", style="muted")
+        self.obd_copy = self._make_text("Choose the serial device used for RPM and speed telemetry. Bluetooth ELM327 adapters are usually on /dev/rfcomm0, or leave it empty for auto-detect.", style="muted")
         self.obd_status = self._make_text("OBD: Idle", style="body")
         self.port_input = TextInput(
-            text="/dev/ttyUSB0",
+            text="",
             multiline=False,
             size_hint_y=None,
             height=dp(52),
